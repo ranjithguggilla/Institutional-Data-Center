@@ -11,8 +11,7 @@ import StudentPagination from "./StudentPagination";
 import PageSelection from "./PageSelection";
 import ChangePasswordModal from "./ChangePasswordModal";
 import { toast } from "react-toastify";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { API_BASE } from "../../apiBase";
 
 export default function AdminHome() {
   const { jwtToken, logoutUser } = useContext(AuthContext);

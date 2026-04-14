@@ -11,8 +11,7 @@ import email_logo from "../images/logo/email_logo.png";
 import telephone_logo from "../images/logo/telephone_logo.png";
 import github_student_logo from "../images/logo/github_student_logo.png";
 import linkedin_student_logo from "../images/logo/linkedin_student_logo.png";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { API_BASE } from "../../apiBase";
 
 export default function HodStudentView() {
   const { studentId } = useParams();

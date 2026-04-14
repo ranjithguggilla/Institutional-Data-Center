@@ -2,8 +2,7 @@ import { createContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { API_BASE } from '../../apiBase';
 
 const AuthContext = createContext();
 
@@ -54,7 +53,7 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post(
         `${API_BASE}/auth/login`,
         {
-          email: e.target.username.value,
+          email: e.target.username.value.trim(),
           password: e.target.password.value,
         },
         {

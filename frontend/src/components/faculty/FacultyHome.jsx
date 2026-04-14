@@ -14,8 +14,7 @@ import linkedin_student_logo from "../images/logo/linkedin_student_logo.png";
 import upload_image_logo from "../images/logo/upload_logo_student.jpg";
 import { toast } from "react-toastify";
 import Modals from "./FacultyModals";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { API_BASE } from "../../apiBase";
 
 export default function FacultyHome() {
   const { logoutUser, jwtToken, redirectUser } = useContext(AuthContext);

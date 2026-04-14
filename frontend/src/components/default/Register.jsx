@@ -1,30 +1,66 @@
-import React, { useContext, useState, useEffect } from "react";
-import { Link } from "react-router-dom";
-import logo from "../images/logo/vaagdevi_logo.png";
-import AuthContext from "../auth/AuthContext";
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from "axios";
+import { toast } from "react-toastify";
 import { Helmet } from "react-helmet-async";
+import logo from "../images/logo/vaagdevi_logo.png";
 import "../css/login_page.css";
+import { API_BASE } from "../../apiBase";
 
-export default function Login() {
-  const { jwtToken } = useContext(AuthContext);
-  const { loginUser } = useContext(AuthContext);
-  const { redirectUser } = useContext(AuthContext);
+export default function Register() {
+  const navigate = useNavigate();
   const [student, setStudent] = useState(true);
   const [faculty, setFaculty] = useState(false);
-  const [admin, setAdmin] = useState(false);
-
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (jwtToken) {
-      redirectUser(null);
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    const userName = e.target.username.value.trim();
+    const password = e.target.password.value;
+    const confirm = e.target.confirm.value;
+
+    if (!userName || !password) {
+      toast.error("Please fill in all fields.");
+      return;
     }
-  }, [jwtToken]);
+    if (password !== confirm) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    const role = student ? "STUDENT" : "FACULTY";
+
+    try {
+      setLoading(false);
+      await axios.post(
+        `${API_BASE}/user/register`,
+        { userName, password, role },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      toast.success("Account created. You can sign in now.");
+      navigate("/login");
+    } catch (err) {
+      const data = err.response?.data;
+      const serverMsg =
+        data && typeof data === "object" && typeof data.message === "string"
+          ? data.message
+          : typeof data === "string"
+            ? data
+            : null;
+      const fallback =
+        err.response?.status === 409
+          ? "This user ID is already registered."
+          : "Registration failed. Please try again.";
+      toast.error(serverMsg || fallback);
+    } finally {
+      setLoading(true);
+    }
+  };
 
   return (
     <div>
       <Helmet>
-        <title>Login — Institutional Data Center</title>
+        <title>Register — Institutional Data Center</title>
         <body className="bg-white" />
       </Helmet>
       <div className="container-fluid no-padding">
@@ -44,7 +80,7 @@ export default function Login() {
               <div className="card card-border-radius mt-4 login-card-foreground">
                 <div className="card-body">
                   <div className="row top_logos_buttons">
-                    <div className="col-3 offset-sm-1">
+                    <div className="col-4 offset-sm-1">
                       {student ? (
                         <button
                           type="button"
@@ -58,14 +94,13 @@ export default function Login() {
                           onClick={() => {
                             setStudent(true);
                             setFaculty(false);
-                            setAdmin(false);
                           }}
                         >
                           Student
                         </p>
                       )}
                     </div>
-                    <div className="col-3 offset-sm-1">
+                    <div className="col-4 offset-sm-1">
                       {faculty ? (
                         <button
                           type="button"
@@ -79,31 +114,9 @@ export default function Login() {
                           onClick={() => {
                             setStudent(false);
                             setFaculty(true);
-                            setAdmin(false);
                           }}
                         >
                           Faculty
-                        </p>
-                      )}
-                    </div>
-                    <div className="col-3 offset-sm-1">
-                      {admin ? (
-                        <button
-                          type="button"
-                          className="btn vaagdevi_color_clicked social_logos titles"
-                        >
-                          Admin
-                        </button>
-                      ) : (
-                        <p
-                          className="p-titles"
-                          onClick={() => {
-                            setStudent(false);
-                            setFaculty(false);
-                            setAdmin(true);
-                          }}
-                        >
-                          Admin
                         </p>
                       )}
                     </div>
@@ -111,52 +124,52 @@ export default function Login() {
                   <hr />
                   <div className="row mt-4">
                     <div className="col-10 offset-1">
-                      <form
-                        method="post"
-                        onSubmit={(e) => loginUser(e, setLoading)}
-                      >
+                      <form method="post" onSubmit={onSubmit}>
                         <div className="mb-3">
-                          <label htmlFor="username" className="form-label">
-                            {student
-                              ? "Student ID"
-                              : faculty
-                              ? "Faculty ID"
-                              : admin
-                              ? "Admin ID"
-                              : ""}
+                          <label htmlFor="reg-username" className="form-label text-dark">
+                            {student ? "Student ID" : "Faculty ID"}
                           </label>
                           <input
                             type="text"
                             className="form-control social_logos border-dark"
                             name="username"
-                            id="username"
-                            aria-describedby="helpId"
+                            id="reg-username"
+                            autoComplete="username"
+                            required
                           />
                         </div>
-                        <div className="mb-4">
-                          <label htmlFor="password" className="form-label">
+                        <div className="mb-3">
+                          <label htmlFor="reg-password" className="form-label text-dark">
                             Password
                           </label>
                           <input
                             type="password"
                             className="form-control social_logos border-dark"
                             name="password"
-                            id="password"
+                            id="reg-password"
+                            autoComplete="new-password"
+                            required
                           />
-                          <Link
-                            to="/forgot-password"
-                            className="register-now d-inline-block mt-1"
-                          >
-                            Forgot Password?
-                          </Link>
                         </div>
-
+                        <div className="mb-4">
+                          <label htmlFor="reg-confirm" className="form-label text-dark">
+                            Confirm password
+                          </label>
+                          <input
+                            type="password"
+                            className="form-control social_logos border-dark"
+                            name="confirm"
+                            id="reg-confirm"
+                            autoComplete="new-password"
+                            required
+                          />
+                        </div>
                         {loading ? (
                           <button
                             type="submit"
-                            className="btn btn-danger btn-block col-12 social_logos vaagdevi_color_clicked "
+                            className="btn btn-danger btn-block col-12 social_logos vaagdevi_color_clicked"
                           >
-                            <h5>Sign in</h5>
+                            <h5 className="mb-0">Create account</h5>
                           </button>
                         ) : (
                           <button
@@ -164,20 +177,22 @@ export default function Login() {
                             disabled
                             className="btn btn-danger btn-block col-12 social_logos vaagdevi_color_clicked"
                           >
-                            <h5>
-                              <div
-                                className="spinner-border"
-                                role="status"
-                              ></div>{" "}
+                            <h5 className="mb-0">
+                              <span className="spinner-border" role="status" />{" "}
                               Please wait...
                             </h5>
                           </button>
                         )}
                       </form>
-                      <div className="col-12 mt-2 text-center register_now text-muted">
-                        Don't have an account yet?{" "}
-                        <Link to="/register" className="register-now">
-                          Register for free
+                      <p className="small text-muted mt-3">
+                        After signing up, your profile may still need to be
+                        completed by an administrator before the dashboard loads
+                        fully.
+                      </p>
+                      <div className="col-12 mt-2 text-center text-muted">
+                        Already have an account?{" "}
+                        <Link to="/login" className="register-now">
+                          Sign in
                         </Link>
                       </div>
                     </div>

@@ -13,6 +13,12 @@ body {
 .register-now {
   text-decoration-line: underline;
   color: orange;
+  cursor: pointer;
+}
+
+.login-card-foreground {
+  position: relative;
+  z-index: 2;
 }
 
 .titles {

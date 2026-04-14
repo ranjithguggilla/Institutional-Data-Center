@@ -5,6 +5,10 @@ import Redirection from "./components/default/Redirection";
 import "./App.css";
 
 const LazyLogin = React.lazy(() => import("./components/default/Login"));
+const LazyRegister = React.lazy(() => import("./components/default/Register"));
+const LazyForgotPassword = React.lazy(() =>
+  import("./components/default/ForgotPassword")
+);
 const LazyStudentHome = React.lazy(() =>
   import("./components/student/StudentHome")
 );
@@ -43,6 +47,34 @@ function App() {
                   }
                 >
                   <LazyLogin />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <Suspense
+                  fallback={
+                    <div className="spinner-container">
+                      <div className="spinner-border" role="status"></div>
+                    </div>
+                  }
+                >
+                  <LazyRegister />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <Suspense
+                  fallback={
+                    <div className="spinner-container">
+                      <div className="spinner-border" role="status"></div>
+                    </div>
+                  }
+                >
+                  <LazyForgotPassword />
                 </Suspense>
               }
             />

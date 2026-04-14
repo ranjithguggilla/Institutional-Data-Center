@@ -12,7 +12,7 @@ import linkedin_student_logo from "../images/logo/linkedin_student_logo.png";
 import { Helmet } from "react-helmet-async";
 import ChangePasswordModal from "./ChangePasswordModal";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { API_BASE } from "../../apiBase";
 
 export default function WatchFaculty() {
   const { facultyId } = useParams();

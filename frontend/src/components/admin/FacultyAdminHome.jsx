@@ -12,7 +12,7 @@ import { jwtDecode } from "jwt-decode";
 import FacultyFilterBar from "./FacultyFilterBar";
 import ChangePasswordModal from "./ChangePasswordModal";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { API_BASE } from "../../apiBase";
 
 export default function FacultyAdminHome() {
   const { jwtToken, logoutUser } = useContext(AuthContext);

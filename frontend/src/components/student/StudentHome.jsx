@@ -14,8 +14,7 @@ import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Helmet } from "react-helmet-async";
 import Modals from "./Modals";
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL;
+import { API_BASE } from "../../apiBase";
 
 export default function StudentHome() {
   const { jwtToken, logoutUser, redirectUser } = useContext(AuthContext);
