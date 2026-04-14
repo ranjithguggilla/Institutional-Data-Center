@@ -58,6 +58,30 @@ export default function AdminTopBar() {
                 <li>
                   <Link
                     className="dropdown-item hover-animation"
+                    to="/admin/users"
+                  >
+                    User Management
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    className="dropdown-item hover-animation"
+                    to="/admin/analytics"
+                  >
+                    Analytics
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    className="dropdown-item hover-animation"
+                    to="/admin/approvals"
+                  >
+                    Approvals
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    className="dropdown-item hover-animation"
                     data-bs-toggle="modal"
                     data-bs-target="#passwordBackdrop"
                     to="#"

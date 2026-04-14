@@ -11,6 +11,7 @@ import { Navigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import FacultyFilterBar from "./FacultyFilterBar";
 import ChangePasswordModal from "./ChangePasswordModal";
+import FacultyCrudForm from "./FacultyCrudForm";
 
 import { API_BASE } from "../../apiBase";
 
@@ -30,117 +31,96 @@ export default function FacultyAdminHome() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [showFacultyForm, setShowFacultyForm] = useState(false);
+  const [editingFacultyId, setEditingFacultyId] = useState(null);
+  const [submittingFacultyForm, setSubmittingFacultyForm] = useState(false);
+  const [facultyForm, setFacultyForm] = useState(getDefaultFacultyForm());
 
   // faculty
+  async function fetchFacultyData() {
+    try {
+      const unqDesignations = await getUniqueDesignations(logoutUser, jwtToken);
+      setUniqueDesignations(unqDesignations ?? []);
+
+      const unqdept = await getUniqueDepartments(logoutUser, jwtToken);
+      setUniqueDepartments(unqdept ?? []);
+
+      const unqexp = await getUniqueExperiences(logoutUser, jwtToken);
+      setUniqueExperiences(unqexp ?? []);
+
+      const url = `${API_BASE}/faculty/get-all-faculties`;
+      const response = await axios.get(url, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      const facultyWithImages = await Promise.all(
+        response.data.map(async (faculty) => {
+          const imageData = await getFacultyImage(faculty.profilePicture, jwtToken);
+          if (imageData !== null) {
+            return {
+              ...faculty,
+              profilePicturePath: faculty.profilePicture,
+              profilePicture: URL.createObjectURL(imageData),
+            };
+          }
+          return {
+            ...faculty,
+            profilePicturePath: faculty.profilePicture,
+          };
+        })
+      );
+
+      const facultyIds = (await getUniqueFacultyIdsByExperience(jwtToken)) ?? [];
+      const facultyWithExperiences = await Promise.all(
+        facultyWithImages.map(async (faculty) => {
+          if (facultyIds.includes(faculty.facultyId)) {
+            const experienceData = await getExperiencesByFaculty(
+              jwtToken,
+              faculty.facultyId
+            );
+            return { ...faculty, exps: experienceData ?? [] };
+          }
+          return { ...faculty, exps: [] };
+        })
+      );
+
+      const facultyIds2 = (await getUniqueFacultyIdsByPaper(jwtToken)) ?? [];
+      const facultyWithPapers = await Promise.all(
+        facultyWithExperiences.map(async (faculty) => {
+          if (facultyIds2.includes(faculty.facultyId)) {
+            const paperData = await getPapersByFaculty(jwtToken, faculty.facultyId);
+            return { ...faculty, papers: paperData ?? [] };
+          }
+          return { ...faculty, papers: [] };
+        })
+      );
+
+      const facultyIds3 = (await getUniqueFacultyIdsByCertification(jwtToken)) ?? [];
+      const facultyWithCertifications = await Promise.all(
+        facultyWithPapers.map(async (faculty) => {
+          if (facultyIds3.includes(faculty.facultyId)) {
+            const certifyData = await getCertificationsByFaculty(
+              jwtToken,
+              faculty.facultyId
+            );
+            return { ...faculty, certifications: certifyData ?? [] };
+          }
+          return { ...faculty, certifications: [] };
+        })
+      );
+
+      setTotalFaculty(facultyWithCertifications);
+      setModifiedFaculty(facultyWithCertifications);
+    } catch (e) {
+      logoutUser();
+    }
+  }
+
   useEffect(() => {
     validateAdmin(jwtToken, logoutUser);
-
-    async function getFacultyData() {
-      try {
-        const unqDesignations = await getUniqueDesignations(
-          logoutUser,
-          jwtToken
-        );
-        setUniqueDesignations(unqDesignations);
-
-        const unqdept = await getUniqueDepartments(logoutUser, jwtToken);
-        setUniqueDepartments(unqdept);
-
-        const unqexp = await getUniqueExperiences(logoutUser, jwtToken);
-        setUniqueExperiences(unqexp);
-
-        const url = `${API_BASE}/faculty/get-all-faculties`;
-        const response = await axios.get(url, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + jwtToken,
-          },
-        });
-        const facultyWithImages = await Promise.all(
-          response.data.map(async (faculty) => {
-            const imageData = await getFacultyImage(faculty.profilePicture);
-            if (imageData !== null) {
-              return {
-                ...faculty,
-                profilePicture: URL.createObjectURL(imageData),
-              };
-            }
-            return faculty;
-          })
-        );
-
-        const facultyIds = await getUniqueFacultyIdsByExperience(jwtToken);
-
-        const facultyWithExperiences = await Promise.all(
-          facultyWithImages.map(async (faculty) => {
-            if (facultyIds.includes(faculty.facultyId)) {
-              const experienceData = await getExperiencesByFaculty(
-                jwtToken,
-                faculty.facultyId
-              );
-              return { ...faculty, exps: experienceData };
-            } else {
-              return { ...faculty, exps: [] };
-            }
-          })
-        );
-
-        const facultyIds2 = await getUniqueFacultyIdsByPaper(jwtToken);
-
-        const facultyWithPapers = await Promise.all(
-          facultyWithExperiences.map(async (faculty) => {
-            if (facultyIds2.includes(faculty.facultyId)) {
-              const paperData = await getPapersByFaculty(
-                jwtToken,
-                faculty.facultyId
-              );
-              return { ...faculty, papers: paperData };
-            } else {
-              return { ...faculty, papers: [] };
-            }
-          })
-        );
-
-        const facultyIds3 = await getUniqueFacultyIdsByCertification(jwtToken);
-        const facultyWithCertifications = await Promise.all(
-          facultyWithPapers.map(async (faculty) => {
-            if (facultyIds3.includes(faculty.facultyId)) {
-              const certifyData = await getCertificationsByFaculty(
-                jwtToken,
-                faculty.facultyId
-              );
-              return { ...faculty, certifications: certifyData };
-            } else {
-              return { ...faculty, certifications: [] };
-            }
-          })
-        );
-
-        setTotalFaculty(facultyWithCertifications);
-        setModifiedFaculty(facultyWithCertifications);
-      } catch (e) {
-        logoutUser();
-      }
-    }
-
-    async function getFacultyImage(imageUrl) {
-      try {
-        const response = await axios.get(`${API_BASE}${imageUrl}`, {
-          headers: {
-            Authorization: "Bearer " + jwtToken,
-          },
-          responseType: "arraybuffer",
-        });
-        const blob = new Blob([response.data], {
-          type: response.headers["content-type"],
-        });
-        return blob;
-      } catch (error) {
-        return null;
-      }
-    }
-
-    getFacultyData();
+    fetchFacultyData();
   }, [jwtToken, logoutUser]);
 
   // filters
@@ -212,7 +192,7 @@ export default function FacultyAdminHome() {
 
     try {
       const response = await axios.post(
-        `${API_BASE}/student/change-password`,
+        `${API_BASE}/faculty/change-password`,
         {
           currentPassword: e.target.currentPassword.value,
           newPassword: e.target.newPassword.value,
@@ -245,6 +225,119 @@ export default function FacultyAdminHome() {
     }
   }
 
+  function resetFacultyForm() {
+    setFacultyForm(getDefaultFacultyForm());
+    setEditingFacultyId(null);
+    setShowFacultyForm(false);
+  }
+
+  function handleFacultyFormChange(e) {
+    const { name, value } = e.target;
+    setFacultyForm((prev) => ({
+      ...prev,
+      [name]: name === "gender" ? value === "true" : value,
+    }));
+  }
+
+  function openCreateFacultyForm() {
+    setEditingFacultyId(null);
+    setFacultyForm(getDefaultFacultyForm());
+    setShowFacultyForm(true);
+  }
+
+  function openEditFacultyForm(faculty) {
+    setEditingFacultyId(faculty.facultyId);
+    setFacultyForm({
+      facultyId: faculty.facultyId ?? "",
+      facultyName: faculty.facultyName ?? "",
+      gender: Boolean(faculty.gender),
+      dateOfBirth: faculty.dateOfBirth
+        ? String(faculty.dateOfBirth).slice(0, 10)
+        : "",
+      department: faculty.department ?? "",
+      emailId: faculty.emailId ?? "",
+      contactNumber: faculty.contactNumber ?? "",
+      address: faculty.address ?? "",
+      designation: faculty.designation ?? "",
+      profilePicture: faculty.profilePicturePath ?? "",
+    });
+    setShowFacultyForm(true);
+  }
+
+  async function handleSubmitFacultyForm(e) {
+    e.preventDefault();
+    const payload = {
+      ...facultyForm,
+      dateOfBirth: facultyForm.dateOfBirth || null,
+    };
+
+    try {
+      setSubmittingFacultyForm(true);
+      if (editingFacultyId) {
+        const response = await axios.put(
+          `${API_BASE}/faculty/update-faculty/${editingFacultyId}`,
+          payload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + jwtToken,
+            },
+          }
+        );
+        if (!response.data) {
+          toast.error("Failed to update faculty.");
+          return;
+        }
+        toast.success("Faculty updated successfully.");
+      } else {
+        const response = await axios.post(`${API_BASE}/faculty/add-faculty`, payload, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        });
+        if (!response.data) {
+          toast.error("Faculty ID already exists.");
+          return;
+        }
+        toast.success("Faculty created successfully.");
+      }
+      resetFacultyForm();
+      await fetchFacultyData();
+    } catch (error) {
+      toast.error("Unable to save faculty. Please try again.");
+    } finally {
+      setSubmittingFacultyForm(false);
+    }
+  }
+
+  async function handleDeleteFaculty(faculty) {
+    const confirmed = window.confirm(
+      `Delete faculty ${faculty.facultyName} (${faculty.facultyId})?`
+    );
+    if (!confirmed) return;
+
+    try {
+      const response = await axios.delete(
+        `${API_BASE}/faculty/delete-faculty/${faculty.facultyId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        }
+      );
+      if (!response.data) {
+        toast.error("Unable to delete faculty.");
+        return;
+      }
+      toast.success("Faculty deleted successfully.");
+      await fetchFacultyData();
+    } catch (error) {
+      toast.error("Unable to delete faculty. Please remove dependent records first.");
+    }
+  }
+
   return (
     <div className="container-fluid">
       <AdminTopBar />
@@ -262,6 +355,25 @@ export default function FacultyAdminHome() {
             />
           </div>
           <div className="col-xl-7 col-lg-8 offset-xl-1">
+            <div className="d-flex justify-content-end mb-2">
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={openCreateFacultyForm}
+              >
+                Add Faculty
+              </button>
+            </div>
+            {showFacultyForm && (
+              <FacultyCrudForm
+                isEditing={Boolean(editingFacultyId)}
+                formData={facultyForm}
+                onChange={handleFacultyFormChange}
+                onSubmit={handleSubmitFacultyForm}
+                onCancel={resetFacultyForm}
+                submitting={submittingFacultyForm}
+              />
+            )}
             <FacultyPageSelection
               modifiedfaculty={modifiedFaculty}
               itemsPerPage={itemsPerPage}
@@ -274,7 +386,12 @@ export default function FacultyAdminHome() {
             ) : (
               <>
                 {currentItems.map((faculty, index) => (
-                  <FacultyCard key={index} faculty={faculty} />
+                  <FacultyCard
+                    key={index}
+                    faculty={faculty}
+                    onEdit={openEditFacultyForm}
+                    onDelete={handleDeleteFaculty}
+                  />
                 ))}
 
                 <FacultyPagination
@@ -297,8 +414,9 @@ function validateAdmin(jwtToken, logoutUser) {
     return <Navigate to="/login" />;
   }
 
-  let username1 = jwtDecode(jwtToken);
-  if (username1.sub !== "admin") {
+  const username = jwtDecode(jwtToken).sub;
+  const allowedAdmins = new Set(["admin", "admin@idc.com"]);
+  if (!allowedAdmins.has(username)) {
     logoutUser();
   }
 }
@@ -467,6 +585,39 @@ async function getCertificationsByFaculty(jwtToken, facultyId) {
     });
     return response.data;
   } catch (e) {
+    return null;
+  }
+}
+
+function getDefaultFacultyForm() {
+  return {
+    facultyId: "",
+    facultyName: "",
+    gender: true,
+    dateOfBirth: "",
+    department: "",
+    emailId: "",
+    contactNumber: "",
+    address: "",
+    designation: "",
+    profilePicture: "",
+  };
+}
+
+async function getFacultyImage(imageUrl, jwtToken) {
+  try {
+    if (!imageUrl) return null;
+    const response = await axios.get(`${API_BASE}${imageUrl}`, {
+      headers: {
+        Authorization: "Bearer " + jwtToken,
+      },
+      responseType: "arraybuffer",
+    });
+    const blob = new Blob([response.data], {
+      type: response.headers["content-type"],
+    });
+    return blob;
+  } catch (error) {
     return null;
   }
 }

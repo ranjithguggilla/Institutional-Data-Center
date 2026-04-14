@@ -16,5 +16,8 @@ public interface StudentRepository extends JpaRepository<Student, String>{
     List<String> findAllUniqueDepartments();
 	
 	List<Student> findByDepartment(String department);
+
+	@Query("SELECT s.department, COUNT(s) FROM Student s GROUP BY s.department")
+	List<Object[]> countStudentsByDepartment();
 	
 }

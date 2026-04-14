@@ -10,6 +10,7 @@ import { jwtDecode } from "jwt-decode";
 import StudentPagination from "./StudentPagination";
 import PageSelection from "./PageSelection";
 import ChangePasswordModal from "./ChangePasswordModal";
+import StudentCrudForm from "./StudentCrudForm";
 import { toast } from "react-toastify";
 import { API_BASE } from "../../apiBase";
 
@@ -34,126 +35,109 @@ export default function AdminHome() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [showStudentForm, setShowStudentForm] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState(null);
+  const [submittingStudentForm, setSubmittingStudentForm] = useState(false);
+  const [studentForm, setStudentForm] = useState(getDefaultStudentForm());
+
+  async function fetchStudentData() {
+    try {
+      const unqBatches = await getUniqueBatches(logoutUser, jwtToken);
+      setUniqueBatches(unqBatches ?? []);
+
+      const unqdept = await getUniqueDepartments(logoutUser, jwtToken);
+      setUniqueDepartments(unqdept ?? []);
+
+      const unqskill = await getUniqueSkills(logoutUser, jwtToken);
+      setUniqueSkills(unqskill ?? []);
+
+      const unqCertification = await getUniqueCertificationsTechnical(
+        logoutUser,
+        jwtToken
+      );
+      setUniqueCertifications(unqCertification ?? []);
+
+      const unqCertification2 = await getUniqueCertificationsNonTechnical(
+        logoutUser,
+        jwtToken
+      );
+      setUniqueCertifications2(unqCertification2 ?? []);
+
+      const url = `${API_BASE}/student/get-all-students`;
+      const response = await axios.get(url, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      const studentsWithImages = await Promise.all(
+        response.data.map(async (student) => {
+          const imageData = await getStudentImage(student.profilePicture, jwtToken);
+          const newCpga = parseFloat(student.cgpa);
+          if (imageData !== null) {
+            return {
+              ...student,
+              profilePicturePath: student.profilePicture,
+              profilePicture: URL.createObjectURL(imageData),
+              cgpa: Number.isNaN(newCpga) ? student.cgpa : newCpga,
+            };
+          }
+          return {
+            ...student,
+            profilePicturePath: student.profilePicture,
+            cgpa: Number.isNaN(newCpga) ? student.cgpa : newCpga,
+          };
+        })
+      );
+
+      const studentIds = (await getUniqueStudentIdsBySKill(jwtToken)) ?? [];
+      const studentsWithSkills = await Promise.all(
+        studentsWithImages.map(async (student) => {
+          if (studentIds.includes(student.studentId)) {
+            const skillData = await getSkillsByStudent(jwtToken, student.studentId);
+            return { ...student, skills: skillData ?? [] };
+          }
+          return { ...student, skills: [] };
+        })
+      );
+
+      const studentIds2 = (await getUniqueStudentIdsByCertifcation(jwtToken)) ?? [];
+      const studentsWithCertifactions = await Promise.all(
+        studentsWithSkills.map(async (student) => {
+          if (studentIds2.includes(student.studentId)) {
+            const certificationData = await getCertificationsByStudent(
+              jwtToken,
+              student.studentId
+            );
+            return { ...student, certifications: certificationData ?? [] };
+          }
+          return { ...student, certifications: [] };
+        })
+      );
+
+      const studentIds3 = (await getUniqueStudentIdsByInternship(jwtToken)) ?? [];
+      const studentsWithInternships = await Promise.all(
+        studentsWithCertifactions.map(async (student) => {
+          if (studentIds3.includes(student.studentId)) {
+            const internshipData = await getInternshipsByStudent(
+              jwtToken,
+              student.studentId
+            );
+            return { ...student, internships: internshipData ?? [] };
+          }
+          return { ...student, internships: [] };
+        })
+      );
+
+      setTotalStudents(studentsWithInternships);
+      setModifiedStudents(studentsWithInternships);
+    } catch (e) {
+      logoutUser();
+    }
+  }
 
   useEffect(() => {
-    async function getStudentData() {
-      try {
-        const unqBatches = await getUniqueBatches(logoutUser, jwtToken);
-        setUniqueBatches(unqBatches);
-
-        const unqdept = await getUniqueDepartments(logoutUser, jwtToken);
-        setUniqueDepartments(unqdept);
-
-        const unqskill = await getUniqueSkills(logoutUser, jwtToken);
-        setUniqueSkills(unqskill);
-
-        const unqCertification = await getUniqueCertificationsTechnical(
-          logoutUser,
-          jwtToken
-        );
-        setUniqueCertifications(unqCertification);
-
-        const unqCertification2 = await getUniqueCertificationsNonTechnical(
-          logoutUser,
-          jwtToken
-        );
-        setUniqueCertifications2(unqCertification2);
-
-        const url = `${API_BASE}/student/get-all-students`;
-        const response = await axios.get(url, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer " + jwtToken,
-          },
-        });
-        const studentsWithImages = await Promise.all(
-          response.data.map(async (student) => {
-            const imageData = await getStudentImage(student.profilePicture);
-            const newCpga = parseFloat(student.cgpa);
-            if (imageData !== null) {
-              return {
-                ...student,
-                profilePicture: URL.createObjectURL(imageData),
-                cgpa: newCpga,
-              };
-            }
-            return { ...student, cgpa: newCpga };
-          })
-        );
-
-        const studentIds = await getUniqueStudentIdsBySKill(jwtToken);
-
-        const studentsWithSkills = await Promise.all(
-          studentsWithImages.map(async (student) => {
-            if (studentIds.includes(student.studentId)) {
-              const skillData = await getSkillsByStudent(
-                jwtToken,
-                student.studentId
-              );
-              return { ...student, skills: skillData };
-            } else {
-              return { ...student, skills: [] };
-            }
-          })
-        );
-
-        const studentIds2 = await getUniqueStudentIdsByCertifcation(jwtToken);
-
-        const studentsWithCertifactions = await Promise.all(
-          studentsWithSkills.map(async (student) => {
-            if (studentIds2.includes(student.studentId)) {
-              const certificationData = await getCertificationsByStudent(
-                jwtToken,
-                student.studentId
-              );
-              return { ...student, certifications: certificationData };
-            } else {
-              return { ...student, certifications: [] };
-            }
-          })
-        );
-
-        const studentIds3 = await getUniqueStudentIdsByInternship(jwtToken);
-
-        const studentsWithInternships = await Promise.all(
-          studentsWithCertifactions.map(async (student) => {
-            if (studentIds3.includes(student.studentId)) {
-              const internshipData = await getInternshipsByStudent(
-                jwtToken,
-                student.studentId
-              );
-              return { ...student, internships: internshipData };
-            } else {
-              return { ...student, internships: [] };
-            }
-          })
-        );
-
-        setTotalStudents(studentsWithInternships);
-        setModifiedStudents(studentsWithInternships);
-      } catch (e) {
-        logoutUser();
-      }
-    }
-
-    async function getStudentImage(imageUrl) {
-      try {
-        const response = await axios.get(`${API_BASE}${imageUrl}`, {
-          headers: {
-            Authorization: "Bearer " + jwtToken,
-          },
-          responseType: "arraybuffer",
-        });
-        const blob = new Blob([response.data], {
-          type: response.headers["content-type"],
-        });
-        return blob;
-      } catch (error) {
-        return null;
-      }
-    }
-
-    getStudentData();
+    fetchStudentData();
   }, [jwtToken, logoutUser]);
 
   // Filters
@@ -307,6 +291,116 @@ export default function AdminHome() {
     }
   }
 
+  function resetStudentForm() {
+    setStudentForm(getDefaultStudentForm());
+    setEditingStudentId(null);
+    setShowStudentForm(false);
+  }
+
+  function handleStudentFormChange(e) {
+    const { name, value } = e.target;
+    setStudentForm((prev) => ({
+      ...prev,
+      [name]: name === "studentGender" ? value === "true" : value,
+    }));
+  }
+
+  function openCreateStudentForm() {
+    setEditingStudentId(null);
+    setStudentForm(getDefaultStudentForm());
+    setShowStudentForm(true);
+  }
+
+  function openEditStudentForm(student) {
+    setEditingStudentId(student.studentId);
+    setStudentForm({
+      studentId: student.studentId ?? "",
+      studentName: student.studentName ?? "",
+      studentGender: Boolean(student.studentGender),
+      batch: student.batch ?? "",
+      emailId: student.emailId ?? "",
+      mobileNumber: student.mobileNumber ?? "",
+      cgpa: `${student.cgpa ?? ""}`,
+      profilePicture: student.profilePicturePath ?? "",
+      department: student.department ?? "",
+    });
+    setShowStudentForm(true);
+  }
+
+  async function handleSubmitStudentForm(e) {
+    e.preventDefault();
+    const payload = {
+      ...studentForm,
+      cgpa: `${studentForm.cgpa}`.trim(),
+    };
+
+    try {
+      setSubmittingStudentForm(true);
+      if (editingStudentId) {
+        const response = await axios.put(
+          `${API_BASE}/student/update-student/${editingStudentId}`,
+          payload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + jwtToken,
+            },
+          }
+        );
+        if (!response.data) {
+          toast.error("Failed to update student.");
+          return;
+        }
+        toast.success("Student updated successfully.");
+      } else {
+        const response = await axios.post(`${API_BASE}/student/add-student`, payload, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        });
+        if (!response.data) {
+          toast.error("Student ID already exists.");
+          return;
+        }
+        toast.success("Student created successfully.");
+      }
+      resetStudentForm();
+      await fetchStudentData();
+    } catch (error) {
+      toast.error("Unable to save student. Please try again.");
+    } finally {
+      setSubmittingStudentForm(false);
+    }
+  }
+
+  async function handleDeleteStudent(student) {
+    const confirmed = window.confirm(
+      `Delete student ${student.studentName} (${student.studentId})?`
+    );
+    if (!confirmed) return;
+
+    try {
+      const response = await axios.delete(
+        `${API_BASE}/student/delete-student/${student.studentId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        }
+      );
+      if (!response.data) {
+        toast.error("Unable to delete student.");
+        return;
+      }
+      toast.success("Student deleted successfully.");
+      await fetchStudentData();
+    } catch (error) {
+      toast.error("Unable to delete student. Please remove dependent records first.");
+    }
+  }
+
   return (
     <div className="container-fluid">
       <AdminTopBar />
@@ -330,6 +424,25 @@ export default function AdminHome() {
             />
           </div>
           <div className="col-xl-7 col-lg-8 offset-xl-1">
+            <div className="d-flex justify-content-end mb-2">
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={openCreateStudentForm}
+              >
+                Add Student
+              </button>
+            </div>
+            {showStudentForm && (
+              <StudentCrudForm
+                isEditing={Boolean(editingStudentId)}
+                formData={studentForm}
+                onChange={handleStudentFormChange}
+                onSubmit={handleSubmitStudentForm}
+                onCancel={resetStudentForm}
+                submitting={submittingStudentForm}
+              />
+            )}
             <PageSelection
               modifiedStudents={modifiedStudents}
               itemsPerPage={itemsPerPage}
@@ -342,7 +455,12 @@ export default function AdminHome() {
             ) : (
               <>
                 {currentItems.map((student, index) => (
-                  <StudentCard key={index} student={student} />
+                  <StudentCard
+                    key={index}
+                    student={student}
+                    onEdit={openEditStudentForm}
+                    onDelete={handleDeleteStudent}
+                  />
                 ))}
 
                 <StudentPagination
@@ -442,8 +560,9 @@ function validateAdmin(jwtToken, logoutUser) {
     return <Navigate to="/login" />;
   }
 
-  let username1 = jwtDecode(jwtToken);
-  if (username1.sub !== "admin") {
+  const username = jwtDecode(jwtToken).sub;
+  const allowedAdmins = new Set(["admin", "admin@idc.com"]);
+  if (!allowedAdmins.has(username)) {
     logoutUser();
   }
 }
@@ -568,5 +687,37 @@ async function downloadStudents(jwtToken) {
     window.URL.revokeObjectURL(urlObject);
   } catch (error) {
     console.error("Error downloading file:", error);
+  }
+}
+
+function getDefaultStudentForm() {
+  return {
+    studentId: "",
+    studentName: "",
+    studentGender: true,
+    batch: "",
+    emailId: "",
+    mobileNumber: "",
+    cgpa: "",
+    profilePicture: "",
+    department: "",
+  };
+}
+
+async function getStudentImage(imageUrl, jwtToken) {
+  try {
+    if (!imageUrl) return null;
+    const response = await axios.get(`${API_BASE}${imageUrl}`, {
+      headers: {
+        Authorization: "Bearer " + jwtToken,
+      },
+      responseType: "arraybuffer",
+    });
+    const blob = new Blob([response.data], {
+      type: response.headers["content-type"],
+    });
+    return blob;
+  } catch (error) {
+    return null;
   }
 }

@@ -1,16 +1,21 @@
 package com.example.demo.security;
 
 import java.security.Principal;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -33,5 +38,55 @@ public class UserController {
         dto.setPassword(passwordEncoder.encode(dto.getPassword()));
         User addUser = userRepository.save(dto);
         return new ResponseEntity<>(addUser, HttpStatus.CREATED);
+    }
+
+    @GetMapping("all")
+    public List<UserSummaryDto> getAllUsers(Principal principal) {
+        requireAdmin(principal);
+        return userRepository.findAllByOrderByUserNameAsc().stream()
+                .map(user -> new UserSummaryDto(user.getUserName(), user.getRole()))
+                .toList();
+    }
+
+    @PutMapping("role/{userName}")
+    public UserSummaryDto updateRole(
+            Principal principal,
+            @PathVariable("userName") String userName,
+            @RequestBody UpdateUserRoleDto dto) {
+        requireAdmin(principal);
+        String newRole = dto.getRole() != null ? dto.getRole().trim().toUpperCase() : "";
+        if (!"ADMIN".equals(newRole) && !"STUDENT".equals(newRole) && !"FACULTY".equals(newRole)) {
+            throw new IllegalArgumentException("Role must be ADMIN, STUDENT, or FACULTY.");
+        }
+
+        User user = userRepository.findById(userName)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userName));
+        user.setRole(newRole);
+        User saved = userRepository.save(user);
+        return new UserSummaryDto(saved.getUserName(), saved.getRole());
+    }
+
+    @DeleteMapping("{userName}")
+    public ResponseEntity<Void> deleteUser(Principal principal, @PathVariable("userName") String userName) {
+        requireAdmin(principal);
+        if (principal.getName().equals(userName)) {
+            throw new IllegalArgumentException("You cannot delete the currently logged-in admin.");
+        }
+        if (!userRepository.existsById(userName)) {
+            throw new IllegalArgumentException("User not found: " + userName);
+        }
+        userRepository.deleteById(userName);
+        return ResponseEntity.noContent().build();
+    }
+
+    private void requireAdmin(Principal principal) {
+        if (principal == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Authentication required.");
+        }
+        User user = userRepository.findById(principal.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "User not found."));
+        if (!"ADMIN".equalsIgnoreCase(user.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin role required.");
+        }
     }
 }

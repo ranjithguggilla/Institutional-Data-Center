@@ -12,6 +12,9 @@ public interface FacultyRepository extends JpaRepository<Faculty, String> {
     
     @Query("SELECT DISTINCT f.designation FROM Faculty f")
     List<String> findAllUniqueDesignations();
+
+    @Query("SELECT f.department, COUNT(f) FROM Faculty f GROUP BY f.department")
+    List<Object[]> countFacultyByDepartment();
     
 }
 

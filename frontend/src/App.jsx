@@ -19,6 +19,15 @@ const LazyHodStudentView = React.lazy(() =>
   import("./components/faculty/HodStudentView")
 );
 const LazyAdminHome = React.lazy(() => import("./components/admin/AdminHome"));
+const LazyAdminUserManagement = React.lazy(() =>
+  import("./components/admin/AdminUserManagement")
+);
+const LazyAdminAnalytics = React.lazy(() =>
+  import("./components/admin/AdminAnalyticsDashboard")
+);
+const LazyAdminApprovals = React.lazy(() =>
+  import("./components/admin/AdminApprovalWorkflow")
+);
 const LazyWatchStudent = React.lazy(() =>
   import("./components/admin/WatchStudent")
 );
@@ -145,6 +154,48 @@ function App() {
                   }
                 >
                   <LazyFacultyAdminHome />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <Suspense
+                  fallback={
+                    <div className="spinner-container">
+                      <div className="spinner-border" role="status"></div>
+                    </div>
+                  }
+                >
+                  <LazyAdminUserManagement />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/admin/analytics"
+              element={
+                <Suspense
+                  fallback={
+                    <div className="spinner-container">
+                      <div className="spinner-border" role="status"></div>
+                    </div>
+                  }
+                >
+                  <LazyAdminAnalytics />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/admin/approvals"
+              element={
+                <Suspense
+                  fallback={
+                    <div className="spinner-container">
+                      <div className="spinner-border" role="status"></div>
+                    </div>
+                  }
+                >
+                  <LazyAdminApprovals />
                 </Suspense>
               }
             />
