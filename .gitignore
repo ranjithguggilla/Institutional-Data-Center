@@ -1,0 +1,62 @@
+# ========================
+# IDE & OS
+# ========================
+.metadata/
+.DS_Store
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# ========================
+# Backend (Spring Boot / Maven)
+# ========================
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+backend/*.log
+backend/logs/
+
+# Uploaded files (runtime data, not source)
+backend/src/main/resources/static/student_profile_pictures/
+backend/src/main/resources/static/faculty_profile_pictures/
+backend/src/main/resources/static/certifications/
+backend/src/main/resources/static/internship/
+backend/src/main/resources/static/faculty_aadhar/
+backend/src/main/resources/static/faculty_pan/
+backend/src/main/resources/static/faculty_certifications/
+
+# ========================
+# Frontend (React / Node)
+# ========================
+node_modules/
+frontend/build/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# ========================
+# Environment & Secrets
+# ========================
+.env
+*.env
+*.env.local
+!*.env.example
+
+# ========================
+# Docker
+# ========================
+mysql_data/
+
+# ========================
+# Datasets (large binary files)
+# ========================
+Students_Dataset/

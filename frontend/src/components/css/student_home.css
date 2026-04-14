@@ -1,0 +1,86 @@
+body{
+    font-family: 'Poppins';
+}
+
+.body-part{
+    background-color: snow;
+}
+
+.navbar_button{
+    border-radius: 25px;
+}
+
+.hover-animation{
+    position: relative;
+    overflow: hidden;
+  }
+  
+.hover-animation::after{
+    content: "";
+    display: block;
+    height: 4px;
+    width: 100%;
+    background-color: #2bd576;
+    transform: scale(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+}
+  
+.hover-animation:hover::after{
+    transform: scale(1);
+}
+
+.vaagdevi_logo{
+    height: 12vh;
+}
+
+@media (max-width: 512px) {
+    .vaagdevi_logo {
+        height: 10vh;
+    }
+}
+
+.user_logo{
+    height: 20px;
+    width: 20px;
+}
+
+.li_padding{
+    padding: 11px;
+}
+
+.img-student-profile{
+    width: 15vh;
+    height: 15vh; 
+    border-radius: 50%; 
+    object-fit: cover;
+}
+
+.img-upload-file{
+    height: 15vh;
+    border-radius: 50%;
+}
+
+.img-upload-file-input{
+    display: none;
+}
+
+.icons-home-page{
+    height: 15px;
+    width: 15px;
+}
+
+.linkedin-logo-student{
+    height: 35px;
+}
+
+.github-logo-student{
+    height: 35px;
+    margin-left: 30px;
+}
+
+.types{
+    height: 25vh;
+    width: 18vw;
+    object-fit: cover;
+}

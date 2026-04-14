@@ -1,0 +1,101 @@
+body {
+  font-family: "Poppins";
+}
+
+.vaagdevi_logo {
+  height: 70px;
+}
+
+.social_logos {
+  border-radius: 25px;
+}
+
+.register-now {
+  text-decoration-line: underline;
+  color: orange;
+}
+
+.titles {
+  margin-left: -15px;
+}
+
+.p-titles {
+  margin-top: 6px;
+}
+
+.card-border-radius {
+  border-radius: 10%;
+}
+
+.image_container {
+  background-image: url("../images/background_images/login_page.JPG");
+  background-size: cover;
+  background-repeat: no-repeat;
+  height: 100vh;
+}
+
+.main_container {
+  background-image: url("../images/background_images/background_image_login.jpeg");
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.row.no-gutters {
+  margin-right: 0;
+  margin-left: 0;
+}
+
+.container-fluid.no-gutters {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.col-lg-7.no-gutters,
+.col-lg-5.no-gutters {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.no-padding {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.vaagdevi_color_clicked,
+.vaagdevi_color_clicked:hover {
+  background-color: rgb(180, 32, 32);
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .top_login_page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 999;
+  }
+
+  .container-fluid.image_container {
+    position: relative;
+    padding-top: 100%;
+  }
+
+  .blurred_image {
+    opacity: 40%;
+  }
+
+  .vaagdevi_logo {
+    height: 100px;
+  }
+}
+
+@media (max-width: 576px) {
+  .image_login_page {
+    margin-bottom: 20px;
+  }
+
+  .top_logos_buttons {
+    justify-content: space-evenly;
+  }
+}

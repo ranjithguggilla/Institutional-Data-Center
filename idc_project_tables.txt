@@ -1,0 +1,110 @@
+STUDENT
+=========
+
+CREATE TABLE student (
+    studentId VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255),
+    batch VARCHAR(255),
+    emailId VARCHAR(255),
+    mobile VARCHAR(255),
+    CGPA VARCHAR(255)
+);
+
+CREATE TABLE skill (
+    skillId INT AUTO_INCREMENT PRIMARY KEY,
+    studentId VARCHAR(255),
+    skill VARCHAR(255),
+    domain VARCHAR(255),
+    FOREIGN KEY (studentId) REFERENCES student(studentId)
+);
+
+CREATE TABLE project (
+    projectId INT AUTO_INCREMENT PRIMARY KEY,
+    studentId VARCHAR(255),
+    description VARCHAR(255),
+    tags VARCHAR(255),
+    url VARCHAR(255),
+    verificationURL VARCHAR(255),
+    FOREIGN KEY (studentId) REFERENCES student(studentId)
+);
+
+CREATE TABLE internship (
+    internshipId INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255),
+    company VARCHAR(255),
+    startDate DATE,
+    endDate DATE,
+    studentId VARCHAR(255),
+    verification VARCHAR(255),
+    domain VARCHAR(255),
+    FOREIGN KEY (studentId) REFERENCES student(studentId)
+);
+
+CREATE TABLE certification (
+    certificationId INT AUTO_INCREMENT PRIMARY KEY,
+    studentId VARCHAR(255),
+    name VARCHAR(255),
+    expire DATE,
+    verification VARCHAR(255),
+    certify VARCHAR(255),
+    FOREIGN KEY (studentId) REFERENCES student(studentId)
+);
+
+
+
+
+
+
+
+
+
+FACULTY
+===================
+CREATE TABLE recent_education (
+    userId VARCHAR(255) PRIMARY KEY,
+    type VARCHAR(255),
+    issuedBy VARCHAR(255),
+    FOREIGN KEY (userId) REFERENCES faculty(userId)
+);
+
+CREATE TABLE social (
+    userId VARCHAR(255) PRIMARY KEY,
+    github VARCHAR(255),
+    linkedin VARCHAR(255),
+    FOREIGN KEY (userId) REFERENCES faculty(userId)
+);
+
+CREATE TABLE faculty (
+    userId VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255),
+    gender VARCHAR(255),
+    dob DATE,
+    department VARCHAR(255),
+    contactNumber VARCHAR(255),
+    address VARCHAR(255),
+    designation VARCHAR(255)
+);
+
+CREATE TABLE experience (
+    userId VARCHAR(255),
+    experienceType VARCHAR(255),
+    exFrom DATE,
+    exTo DATE,
+    company VARCHAR(255),
+    designation VARCHAR(255),
+    PRIMARY KEY (userId),
+    FOREIGN KEY (userId) REFERENCES faculty(userId)
+);
+
+
+
+
+
+AUTHENTICATION
+========================================
+CREATE TABLE user_credentials (
+    username VARCHAR(255) PRIMARY KEY,
+    password VARCHAR(255) UNIQUE
+);
+
+
