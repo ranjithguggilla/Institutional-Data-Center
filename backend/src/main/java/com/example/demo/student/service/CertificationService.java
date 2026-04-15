@@ -8,8 +8,11 @@ import com.example.demo.student.entity.Certification;
 import com.example.demo.student.entity.Student;
 import com.example.demo.student.repository.CertificationRepository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -58,8 +61,11 @@ public class CertificationService {
         return false;
     }
     
-    public List<Certification> getCertificationByStudent(Student student){
-    	return certificationRepository.findByStudent(student);
+    public List<Certification> getCertificationByStudent(Student student) {
+        if (student == null || !StringUtils.hasText(student.getStudentId())) {
+            return Collections.emptyList();
+        }
+        return certificationRepository.findByStudent(student);
     }
     
     public List<String> getAllUniqueCertificationsTechnical(){

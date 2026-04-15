@@ -8,8 +8,11 @@ import com.example.demo.faculty.entity.Experience;
 import com.example.demo.faculty.entity.Faculty;
 import com.example.demo.faculty.repository.ExperienceRepository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import com.example.demo.faculty.FacultyEntityChecks;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +62,9 @@ public class ExperienceService {
     }
     
     public List<Experience> getByFacultyObject(Faculty faculty){
+        if (!FacultyEntityChecks.isPersisted(faculty)) {
+            return Collections.emptyList();
+        }
     	return experienceRepository.findByFaculty(faculty);
     }
     
@@ -71,6 +77,9 @@ public class ExperienceService {
     }
     
     public List<String> getUniqueExperienceCompanyByFaculty(Faculty faculty){
+        if (!FacultyEntityChecks.isPersisted(faculty)) {
+            return Collections.emptyList();
+        }
     	return experienceRepository.findUniqueExperienceCompanyByFaculty(faculty);
     }
     

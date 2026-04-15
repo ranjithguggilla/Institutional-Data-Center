@@ -8,8 +8,11 @@ import com.example.demo.student.entity.Project;
 import com.example.demo.student.entity.Student;
 import com.example.demo.student.repository.ProjectRepository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -58,7 +61,10 @@ public class ProjectService {
         return false;
     }
     
-    public List<Project> getProjectByStudent(Student student){
-    	return projectRepository.findByStudent(student);
+    public List<Project> getProjectByStudent(Student student) {
+        if (student == null || !StringUtils.hasText(student.getStudentId())) {
+            return Collections.emptyList();
+        }
+        return projectRepository.findByStudent(student);
     }
 }

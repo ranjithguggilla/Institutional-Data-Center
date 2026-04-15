@@ -35,8 +35,8 @@ export default function HodStudentView() {
 
     async function getFacultyObject() {
       try {
-        const url =
-          `${API_BASE}/faculty/get-faculty/${jwtDecode(jwtToken).sub}`;
+        const sub = jwtDecode(jwtToken).sub;
+        const url = `${API_BASE}/faculty/get-faculty/${encodeURIComponent(sub)}`;
         const response = await axios.get(url, {
           headers: {
             "Content-Type": "application/json",

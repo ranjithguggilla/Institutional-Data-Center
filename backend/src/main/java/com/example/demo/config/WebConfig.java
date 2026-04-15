@@ -6,13 +6,13 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.example.demo.security.CustomUserDetailsService;
@@ -23,6 +23,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Value("${cors.allowed-origins}")
     private String allowedOrigins;
+
+    private final AppStoragePaths appStoragePaths;
+
+    public WebConfig(AppStoragePaths appStoragePaths) {
+        this.appStoragePaths = appStoragePaths;
+    }
 
     /**
      * Required for Spring Security's {@code CorsFilter}. {@link WebMvcConfigurer} CORS alone
@@ -52,13 +58,28 @@ public class WebConfig implements WebMvcConfigurer {
             .allowedHeaders("*");
     }
 
+    /**
+     * Serve faculty profile photos from the same writable directory used on upload
+     * ({@link AppStoragePaths#getFacultyProfilePictures()}).
+     */
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        String location = appStoragePaths.getFacultyProfilePictures().toUri().toString();
+        if (!location.endsWith("/")) {
+            location += "/";
+        }
+        registry.addResourceHandler("/faculty_profile_pictures/**")
+                .addResourceLocations(location);
+    }
+
     @Bean
     PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     @Bean
-    UserDetailsService userDetailsService(UserRepository userRepository) {
+    CustomUserDetailsService customUserDetailsService(UserRepository userRepository) {
         return new CustomUserDetailsService(userRepository);
     }
+
 }

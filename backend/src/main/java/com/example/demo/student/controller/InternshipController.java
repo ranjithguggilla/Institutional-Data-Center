@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.demo.admin.GovernanceService;
 import com.example.demo.student.entity.Internship;
 import com.example.demo.student.entity.Student;
 import com.example.demo.student.service.InternshipService;
@@ -40,6 +41,7 @@ public class InternshipController {
 
     private final InternshipService internshipService;
     private final StudentService studentService;
+    private final GovernanceService governanceService;
 
     @PostMapping("add-internship")
     public ResponseEntity<String> addInternship(@RequestParam("file") MultipartFile file, Principal principal,
@@ -64,6 +66,8 @@ public class InternshipController {
             internship.setVerification("/internship/" + fileName);
             internship.setStudent(student);
             internshipService.addInternship(internship);
+            governanceService.recordChange(principal.getName(), "INTERNSHIP", student.getStudentId(), "CREATE",
+                    "Internship added: " + internshipName);
             return ResponseEntity.ok("Internship details uploaded successfully.");
         } catch (IOException e) {
             log.error("Failed to upload internship for {}", principal.getName(), e);
@@ -97,13 +101,27 @@ public class InternshipController {
     }
 
     @PutMapping("update-internship/{internshipId}")
-    public boolean updateInternship(@PathVariable("internshipId") int internshipId, @RequestBody Internship internship) {
-        return internshipService.updateInternship(internship);
+    public boolean updateInternship(
+            @PathVariable("internshipId") int internshipId,
+            @RequestBody Internship internship,
+            Principal principal) {
+        boolean updated = internshipService.updateInternship(internship);
+        if (updated) {
+            governanceService.recordChange(principal != null ? principal.getName() : "system", "INTERNSHIP",
+                    String.valueOf(internshipId), "UPDATE",
+                    "Internship updated: " + internship.getInternshipName());
+        }
+        return updated;
     }
 
     @DeleteMapping("delete-internship/{internshipId}")
-    public boolean deleteInternship(@PathVariable("internshipId") int internshipId) {
-        return internshipService.deleteInternship(internshipId);
+    public boolean deleteInternship(@PathVariable("internshipId") int internshipId, Principal principal) {
+        boolean deleted = internshipService.deleteInternship(internshipId);
+        if (deleted) {
+            governanceService.recordChange(principal != null ? principal.getName() : "system", "INTERNSHIP",
+                    String.valueOf(internshipId), "DELETE", "Internship removed");
+        }
+        return deleted;
     }
 
     @GetMapping("get-all-unique-student-ids-by-internship")

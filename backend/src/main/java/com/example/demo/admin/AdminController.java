@@ -38,6 +38,7 @@ public class AdminController {
     private final FacultyRepository facultyRepository;
     private final UserRepository userRepository;
     private final ApprovalRequestRepository approvalRequestRepository;
+    private final ActionAuditRepository actionAuditRepository;
 
     @GetMapping("analytics/overview")
     public Map<String, Object> getOverview(Principal principal) {
@@ -63,6 +64,17 @@ public class AdminController {
             return approvalRequestRepository.findAllByOrderByCreatedAtDesc();
         }
         return approvalRequestRepository.findByStatusOrderByCreatedAtDesc(status.trim().toUpperCase());
+    }
+
+    @GetMapping("audit-trail")
+    public List<ActionAudit> getAuditTrail(
+            Principal principal,
+            @RequestParam(value = "entityType", required = false) String entityType) {
+        requireAdmin(principal);
+        if (entityType == null || entityType.isBlank()) {
+            return actionAuditRepository.findAllByOrderByCreatedAtDesc();
+        }
+        return actionAuditRepository.findByEntityTypeOrderByCreatedAtDesc(entityType.trim().toUpperCase());
     }
 
     @PostMapping("approvals/request")

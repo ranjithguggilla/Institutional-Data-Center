@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.admin.GovernanceService;
 import com.example.demo.faculty.entity.Faculty;
 import com.example.demo.faculty.entity.FacultyProject;
 import com.example.demo.faculty.service.FacultyProjectService;
@@ -26,12 +27,18 @@ public class FacultyProjectController {
 
     private final FacultyProjectService facultyProjectService;
     private final FacultyService facultyService;
+    private final GovernanceService governanceService;
 
     @PostMapping("add-project")
     public boolean addProject(@RequestBody FacultyProject project, Principal principal) {
         Faculty faculty = facultyService.getFacultyById(principal.getName());
         project.setFaculty(faculty);
-        return facultyProjectService.addProject(project);
+        boolean created = facultyProjectService.addProject(project);
+        if (created) {
+            governanceService.recordChange(principal.getName(), "FACULTY_PROJECT", faculty.getFacultyId(), "CREATE",
+                    "Faculty project added: " + project.getProjectTitle());
+        }
+        return created;
     }
 
     @GetMapping("get-project/{projectId}")
@@ -55,12 +62,22 @@ public class FacultyProjectController {
     }
 
     @PutMapping("update-project/{projectId}")
-    public boolean updateProject(@PathVariable("projectId") int projectId, @RequestBody FacultyProject project) {
-        return facultyProjectService.updateProject(project);
+    public boolean updateProject(@PathVariable("projectId") int projectId, @RequestBody FacultyProject project, Principal principal) {
+        boolean updated = facultyProjectService.updateProject(project);
+        if (updated) {
+            governanceService.recordChange(principal != null ? principal.getName() : "system", "FACULTY_PROJECT",
+                    String.valueOf(projectId), "UPDATE", "Faculty project updated: " + project.getProjectTitle());
+        }
+        return updated;
     }
 
     @DeleteMapping("delete-project/{projectId}")
-    public boolean deleteProject(@PathVariable("projectId") int projectId) {
-        return facultyProjectService.deleteProject(projectId);
+    public boolean deleteProject(@PathVariable("projectId") int projectId, Principal principal) {
+        boolean deleted = facultyProjectService.deleteProject(projectId);
+        if (deleted) {
+            governanceService.recordChange(principal != null ? principal.getName() : "system", "FACULTY_PROJECT",
+                    String.valueOf(projectId), "DELETE", "Faculty project removed");
+        }
+        return deleted;
     }
 }

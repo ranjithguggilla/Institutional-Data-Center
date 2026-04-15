@@ -8,8 +8,11 @@ import com.example.demo.student.entity.Internship;
 import com.example.demo.student.entity.Student;
 import com.example.demo.student.repository.InternshipRepository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -58,8 +61,11 @@ public class InternshipService {
         return false;
     }
     
-    public List<Internship> getInternshipByStudent(Student student){
-    	return internshipRepository.findByStudent(student);
+    public List<Internship> getInternshipByStudent(Student student) {
+        if (student == null || !StringUtils.hasText(student.getStudentId())) {
+            return Collections.emptyList();
+        }
+        return internshipRepository.findByStudent(student);
     }
     
     public List<String> getAllUniqueStudentIdsByInternship(){
@@ -67,6 +73,9 @@ public class InternshipService {
     }
     
     public List<String> getUniqueInternshipsByStudent(Student student) {
-    	return internshipRepository.findUniqueInternshipTypesByStudent(student);
+        if (student == null || !StringUtils.hasText(student.getStudentId())) {
+            return Collections.emptyList();
+        }
+        return internshipRepository.findUniqueInternshipTypesByStudent(student);
     }
 }

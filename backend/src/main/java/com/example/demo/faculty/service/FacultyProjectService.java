@@ -8,8 +8,11 @@ import com.example.demo.faculty.entity.Faculty;
 import com.example.demo.faculty.entity.FacultyProject;
 import com.example.demo.faculty.repository.FacultyProjectRepository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import com.example.demo.faculty.FacultyEntityChecks;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +62,9 @@ public class FacultyProjectService {
     }
     
     public List<FacultyProject> getProjectByFaculty(Faculty faculty){
+        if (!FacultyEntityChecks.isPersisted(faculty)) {
+            return Collections.emptyList();
+        }
     	return facultyProjectRepository.findByFaculty(faculty);
     }
 }

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.admin.GovernanceService;
 import com.example.demo.student.entity.Skill;
 import com.example.demo.student.entity.Student;
 import com.example.demo.student.service.SkillService;
@@ -26,12 +27,18 @@ public class SkillController {
 
     private final SkillService skillService;
     private final StudentService studentService;
+    private final GovernanceService governanceService;
 
     @PostMapping("add-skill")
     public boolean addSkill(@RequestBody Skill skill, Principal principal) {
         Student student = studentService.getStudentById(principal.getName());
         skill.setStudent(student);
-        return skillService.addSkill(skill);
+        boolean created = skillService.addSkill(skill);
+        if (created) {
+            governanceService.recordChange(principal.getName(), "SKILL", student.getStudentId(), "CREATE",
+                    "Skill added: " + skill.getSkill());
+        }
+        return created;
     }
 
     @GetMapping("get-skill/{skillId}")
@@ -75,12 +82,22 @@ public class SkillController {
     }
 
     @PutMapping("update-skill/{skillId}")
-    public boolean updateSkill(@PathVariable("skillId") int skillId, @RequestBody Skill skill) {
-        return skillService.updateSkill(skill);
+    public boolean updateSkill(@PathVariable("skillId") int skillId, @RequestBody Skill skill, Principal principal) {
+        boolean updated = skillService.updateSkill(skill);
+        if (updated) {
+            governanceService.recordChange(principal != null ? principal.getName() : "system", "SKILL", String.valueOf(skillId),
+                    "UPDATE", "Skill updated: " + skill.getSkill());
+        }
+        return updated;
     }
 
     @DeleteMapping("delete-skill/{skillId}")
-    public boolean deleteSkill(@PathVariable("skillId") int skillId) {
-        return skillService.deleteSkill(skillId);
+    public boolean deleteSkill(@PathVariable("skillId") int skillId, Principal principal) {
+        boolean deleted = skillService.deleteSkill(skillId);
+        if (deleted) {
+            governanceService.recordChange(principal != null ? principal.getName() : "system", "SKILL", String.valueOf(skillId),
+                    "DELETE", "Skill removed");
+        }
+        return deleted;
     }
 }

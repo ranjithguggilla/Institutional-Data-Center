@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.Principal;
 import java.util.List;
 import java.util.UUID;
@@ -29,7 +28,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.demo.config.AppStoragePaths;
 import com.example.demo.excel.ExcelService;
+import com.example.demo.faculty.FacultyEntityChecks;
 import com.example.demo.faculty.entity.Faculty;
 import com.example.demo.faculty.service.FacultyService;
 import com.example.demo.security.CustomUserDetailsService;
@@ -51,6 +52,7 @@ public class FacultyController {
     private final CustomUserDetailsService customUserDetailsService;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final AppStoragePaths appStoragePaths;
 
     @PostMapping("add-faculty")
     public boolean addFaculty(@RequestBody Faculty faculty) {
@@ -82,6 +84,52 @@ public class FacultyController {
         return facultyService.updateFaculty(faculty);
     }
 
+    /**
+     * Self-service profile update. Creates a {@link Faculty} row on first save if none exists
+     * (same id as login / JWT subject).
+     */
+    @PutMapping("me")
+    public boolean updateMyProfile(Principal principal, @RequestBody Faculty patch) {
+        String uid = principal.getName();
+        Faculty existing = facultyService.getFacultyById(uid);
+        if (!FacultyEntityChecks.isPersisted(existing)) {
+            Faculty created = new Faculty();
+            created.setFacultyId(uid);
+            created.setGender(false);
+            copyFacultyPatch(created, patch);
+            if (created.getFacultyName() == null || created.getFacultyName().isBlank()) {
+                created.setFacultyName(uid);
+            }
+            return facultyService.addFaculty(created);
+        }
+        copyFacultyPatch(existing, patch);
+        return facultyService.updateFaculty(existing);
+    }
+
+    private static void copyFacultyPatch(Faculty target, Faculty patch) {
+        if (patch.getFacultyName() != null) {
+            target.setFacultyName(patch.getFacultyName());
+        }
+        if (patch.getDepartment() != null) {
+            target.setDepartment(patch.getDepartment());
+        }
+        if (patch.getEmailId() != null) {
+            target.setEmailId(patch.getEmailId());
+        }
+        if (patch.getContactNumber() != null) {
+            target.setContactNumber(patch.getContactNumber());
+        }
+        if (patch.getAddress() != null) {
+            target.setAddress(patch.getAddress());
+        }
+        if (patch.getDesignation() != null) {
+            target.setDesignation(patch.getDesignation());
+        }
+        if (patch.getDateOfBirth() != null) {
+            target.setDateOfBirth(patch.getDateOfBirth());
+        }
+    }
+
     @DeleteMapping("delete-faculty/{facultyId}")
     public boolean deleteFaculty(@PathVariable("facultyId") String facultyId) {
         return facultyService.deleteFaculty(facultyId);
@@ -90,9 +138,8 @@ public class FacultyController {
     @PostMapping("set-faculty-image")
     public ResponseEntity<String> setFacultyImage(@RequestParam("file") MultipartFile file, Principal principal) {
         try {
-            String directory = "src/main/resources/static/faculty_profile_pictures/";
             String fileName = principal.getName() + "_" + UUID.randomUUID().toString() + ".JPG";
-            Path uploadPath = Paths.get(directory).resolve(fileName);
+            Path uploadPath = appStoragePaths.getFacultyProfilePictures().resolve(fileName);
             Files.createDirectories(uploadPath.getParent());
             Files.copy(file.getInputStream(), uploadPath);
             Faculty faculty = facultyService.getFacultyById(principal.getName());

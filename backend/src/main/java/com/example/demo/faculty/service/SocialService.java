@@ -8,8 +8,11 @@ import com.example.demo.faculty.entity.Faculty;
 import com.example.demo.faculty.entity.Social;
 import com.example.demo.faculty.repository.SocialRepository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import com.example.demo.faculty.FacultyEntityChecks;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +62,9 @@ public class SocialService {
     }
     
     public List<Social> getSocialByFaculty(Faculty faculty){
+        if (!FacultyEntityChecks.isPersisted(faculty)) {
+            return Collections.emptyList();
+        }
     	return socialRepository.findByFaculty(faculty);
     }
 }

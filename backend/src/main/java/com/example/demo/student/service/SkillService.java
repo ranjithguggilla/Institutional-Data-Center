@@ -1,14 +1,17 @@
 package com.example.demo.student.service;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 
 import com.example.demo.student.entity.Skill;
 import com.example.demo.student.entity.Student;
 import com.example.demo.student.repository.SkillRepository;
-import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -57,16 +60,22 @@ public class SkillService {
         return false;
     }
     
-    public List<Skill> getSkillByStudent(Student student){
-    	return skillRepository.findByStudent(student);
+    public List<Skill> getSkillByStudent(Student student) {
+        if (student == null || !StringUtils.hasText(student.getStudentId())) {
+            return Collections.emptyList();
+        }
+        return skillRepository.findByStudent(student);
     }
     
     public List<String> getAllUniqueSkillDomains(){
     	return skillRepository.findAllUniqueDomains();
     }
     
-    public List<String> getAllUniqueSkillDomainsByStudent(Student student){
-    	return skillRepository.findAllUniqueDomainsByStudent(student);
+    public List<String> getAllUniqueSkillDomainsByStudent(Student student) {
+        if (student == null || !StringUtils.hasText(student.getStudentId())) {
+            return Collections.emptyList();
+        }
+        return skillRepository.findAllUniqueDomainsByStudent(student);
     }
     
     public List<String> getAllUniqueStudentIdsBySkill(){

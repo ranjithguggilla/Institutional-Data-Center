@@ -78,6 +78,35 @@ body {
   margin-left: 30px;
 }
 
+.faculty-social-icons-row {
+  row-gap: 0.5rem;
+}
+
+.faculty-social-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  line-height: 1;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.faculty-social-icon-link:not(.pe-none):hover {
+  transform: scale(1.06);
+}
+
+.faculty-social-bi {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.faculty-social-svg {
+  display: block;
+}
+
 .img-student-profile {
   width: 15vh;
   height: 15vh;

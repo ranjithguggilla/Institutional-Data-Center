@@ -323,6 +323,8 @@ export default function AdminHome() {
       cgpa: `${student.cgpa ?? ""}`,
       profilePicture: student.profilePicturePath ?? "",
       department: student.department ?? "",
+      linkedinUrl: student.linkedinUrl ?? "",
+      githubUrl: student.githubUrl ?? "",
     });
     setShowStudentForm(true);
   }
@@ -701,6 +703,8 @@ function getDefaultStudentForm() {
     cgpa: "",
     profilePicture: "",
     department: "",
+    linkedinUrl: "",
+    githubUrl: "",
   };
 }
 

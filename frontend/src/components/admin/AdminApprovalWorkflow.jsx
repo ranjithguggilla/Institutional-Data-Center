@@ -13,6 +13,7 @@ export default function AdminApprovalWorkflow() {
   const { jwtToken, logoutUser } = useContext(AuthContext);
   const [statusFilter, setStatusFilter] = useState("PENDING");
   const [requests, setRequests] = useState([]);
+  const [auditTrail, setAuditTrail] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createForm, setCreateForm] = useState({
@@ -44,6 +45,20 @@ export default function AdminApprovalWorkflow() {
     }
   }
 
+  async function fetchAuditTrail() {
+    try {
+      const response = await axios.get(`${API_BASE}/admin/audit-trail`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${jwtToken}`,
+        },
+      });
+      setAuditTrail(response.data || []);
+    } catch (error) {
+      toast.error("Unable to load audit trail.");
+    }
+  }
+
   async function handleCreateRequest(e) {
     e.preventDefault();
     if (!createForm.entityId.trim()) {
@@ -65,6 +80,7 @@ export default function AdminApprovalWorkflow() {
       toast.success("Approval request created.");
       setCreateForm({ entityType: "STUDENT", entityId: "", note: "" });
       await fetchRequests();
+      await fetchAuditTrail();
     } catch (error) {
       const message =
         error?.response?.data?.message ||
@@ -91,6 +107,7 @@ export default function AdminApprovalWorkflow() {
       );
       toast.success(`Request ${status.toLowerCase()}.`);
       await fetchRequests();
+      await fetchAuditTrail();
     } catch (error) {
       toast.error("Unable to update approval status.");
     } finally {
@@ -99,6 +116,10 @@ export default function AdminApprovalWorkflow() {
   }
 
   validateAdmin(jwtToken, logoutUser);
+
+  useEffect(() => {
+    fetchAuditTrail();
+  }, [jwtToken]);
 
   return (
     <div className="container-fluid">
@@ -219,6 +240,41 @@ export default function AdminApprovalWorkflow() {
                                 <span className="text-muted">Reviewed</span>
                               )}
                             </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="card shadow mt-3">
+              <div className="card-body">
+                <h5 className="mb-3">Audit Timeline</h5>
+                {auditTrail.length === 0 ? (
+                  <p className="text-muted mb-0">No audit events found.</p>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="table table-sm align-middle">
+                      <thead>
+                        <tr>
+                          <th>When</th>
+                          <th>Entity</th>
+                          <th>Action</th>
+                          <th>By</th>
+                          <th>Details</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {auditTrail.map((item) => (
+                          <tr key={item.id}>
+                            <td>{item.createdAt?.replace("T", " ").slice(0, 16)}</td>
+                            <td>
+                              {item.entityType} / {item.entityId}
+                            </td>
+                            <td>{item.actionType}</td>
+                            <td>{item.performedBy}</td>
+                            <td>{item.details}</td>
                           </tr>
                         ))}
                       </tbody>

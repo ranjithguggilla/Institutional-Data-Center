@@ -1,16 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import logo from "../images/logo/vaagdevi_logo.png";
 import "../css/login_page.css";
 
 export default function ForgotPassword() {
   return (
     <div>
-      <Helmet>
-        <title>Forgot password — Institutional Data Center</title>
-        <body className="bg-white" />
-      </Helmet>
       <div className="container-fluid no-padding">
         <div className="row no-gutters">
           <div className="col-lg-7 no-padding col-12">

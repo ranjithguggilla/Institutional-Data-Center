@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useEffect, useMemo, useState } from "react";
 import AuthContext from "../auth/AuthContext";
 import { Link, Navigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
@@ -9,12 +9,16 @@ import "../css/faculty_home.css";
 import { Helmet } from "react-helmet-async";
 import email_logo from "../images/logo/email_logo.png";
 import telephone_logo from "../images/logo/telephone_logo.png";
-import github_student_logo from "../images/logo/github_student_logo.png";
-import linkedin_student_logo from "../images/logo/linkedin_student_logo.png";
 import upload_image_logo from "../images/logo/upload_logo_student.jpg";
+import { GoogleScholarIcon, OrcidIcon, ResearchGateIcon } from "./socialIcons";
 import { toast } from "react-toastify";
 import Modals from "./FacultyModals";
 import { API_BASE } from "../../apiBase";
+
+function isSessionExpiredError(error) {
+  const s = error?.response?.status;
+  return s === 401 || s === 403;
+}
 
 export default function FacultyHome() {
   const { logoutUser, jwtToken, redirectUser } = useContext(AuthContext);
@@ -32,15 +36,55 @@ export default function FacultyHome() {
   const [researchPapers, setResearchPapers] = useState([]);
   const [projects, setProjects] = useState([]);
   const [personalDocuments, setPersonalDocuments] = useState([]);
+  const [licenses, setLicenses] = useState([]);
+  const [grants, setGrants] = useState([]);
 
   const [renderPage, setRenderPage] = useState(false);
   const [addDocuments, setAddDocuments] = useState(true);
+  const [pendingActions, setPendingActions] = useState({});
+
+  function setActionLoading(key, value) {
+    setPendingActions((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function normalizeExternalUrl(url) {
+    if (!url) return "";
+    const trimmed = String(url).trim();
+    if (!trimmed) return "";
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  }
+
+  const loginId = useMemo(() => {
+    if (!jwtToken) return "";
+    try {
+      const sub = jwtDecode(jwtToken).sub;
+      return sub != null ? String(sub).trim() : "";
+    } catch {
+      return "";
+    }
+  }, [jwtToken]);
+
+  const facultyDisplayName = useMemo(() => {
+    const n =
+      faculty?.facultyName != null ? String(faculty.facultyName).trim() : "";
+    if (n) return n;
+    if (loginId) return loginId;
+    if (username && String(username).trim()) return String(username).trim();
+    return "Faculty member";
+  }, [faculty?.facultyName, loginId, username]);
+
+  const departmentDisplay = useMemo(() => {
+    const d =
+      faculty?.department != null ? String(faculty.department).trim() : "";
+    return d || "—";
+  }, [faculty?.department]);
 
   useEffect(() => {
     async function getFacultyObject() {
       try {
-        const url =
-          `${API_BASE}/faculty/get-faculty/${jwtDecode(jwtToken).sub}`;
+        const sub = jwtDecode(jwtToken).sub;
+        const url = `${API_BASE}/faculty/get-faculty/${encodeURIComponent(sub)}`;
         const response = await axios.get(url, {
           headers: {
             "Content-Type": "application/json",
@@ -48,14 +92,26 @@ export default function FacultyHome() {
           },
         });
         setFaculty(response.data);
-        await getFacultyImage(response.data.profilePicture);
+        if (response.data.profilePicture) {
+          await getFacultyImage(response.data.profilePicture);
+        } else {
+          setProfilePictureError(true);
+        }
         if (response.data.designation === "HOD") {
           setHod(true);
           await getDepartmentStudents(response.data.department);
         }
       } catch (e) {
-        console.log(e);
-        logoutUser();
+        console.error(e);
+        if (isSessionExpiredError(e)) {
+          toast.error("Session expired. Please sign in again.");
+          logoutUser();
+        } else {
+          toast.error(
+            "No faculty profile found for this login. Ask an admin to add a faculty record whose Faculty ID matches your account exactly (including spaces)."
+          );
+          setFaculty({});
+        }
       }
     }
 
@@ -136,6 +192,44 @@ export default function FacultyHome() {
     } catch (e) {}
   }, [renderPage]);
 
+  async function fetchLicensesList() {
+    try {
+      const r = await axios.get(`${API_BASE}/faculty-license/list`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      setLicenses(r.data || []);
+    } catch (err) {
+      if (isSessionExpiredError(err)) {
+        toast.error("Session expired. Please sign in again.");
+        logoutUser();
+      } else {
+        setLicenses([]);
+      }
+    }
+  }
+
+  async function fetchGrantsList() {
+    try {
+      const r = await axios.get(`${API_BASE}/faculty-grant/list`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      setGrants(r.data || []);
+    } catch (err) {
+      if (isSessionExpiredError(err)) {
+        toast.error("Session expired. Please sign in again.");
+        logoutUser();
+      } else {
+        setGrants([]);
+      }
+    }
+  }
+
   useEffect(() => {
     getCertifications();
     getExperiences();
@@ -143,6 +237,8 @@ export default function FacultyHome() {
     getProjects();
     getDocuments();
     getFacultySocial();
+    fetchLicensesList();
+    fetchGrantsList();
   }, [renderPage]);
 
   if (!jwtToken) {
@@ -158,37 +254,111 @@ export default function FacultyHome() {
           Authorization: "Bearer " + jwtToken,
         },
       });
-      setSocial(response.data[0]);
-      if (Object.keys(response.data).length !== 0) {
+      const rows = Array.isArray(response.data) ? response.data : [];
+      setSocial(rows[0] ?? {});
+      if (rows.length !== 0) {
         setSocialProfileError(true);
       } else {
         setSocialProfileError(false);
       }
     } catch (e) {
-      console.log(e);
-      logoutUser();
+      console.error(e);
+      if (isSessionExpiredError(e)) {
+        toast.error("Session expired. Please sign in again.");
+        logoutUser();
+      } else {
+        setSocial({});
+      }
+    }
+  }
+
+  /**
+   * Refetch faculty row and load profile image blob (same as initial page load).
+   * @returns {Promise<boolean>} true if the image is shown; false if an error toast was shown
+   */
+  async function reloadFacultyAndProfileImage() {
+    try {
+      const sub = jwtDecode(jwtToken).sub;
+      const url = `${API_BASE}/faculty/get-faculty/${encodeURIComponent(sub)}`;
+      const response = await axios.get(url, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      const data = response.data;
+      if (!data?.profilePicture) {
+        setFaculty(data);
+        setProfilePictureError(true);
+        toast.error(
+          "Upload finished but no photo path was returned. Try refreshing the page."
+        );
+        return false;
+      }
+      try {
+        const imgRes = await axios.get(`${API_BASE}${data.profilePicture}`, {
+          headers: {
+            Authorization: "Bearer " + jwtToken,
+          },
+          responseType: "arraybuffer",
+        });
+        const blob = new Blob([imgRes.data], {
+          type: imgRes.headers["content-type"] || "image/jpeg",
+        });
+        setFaculty((prev) => {
+          const old = prev.profilePicture;
+          if (typeof old === "string" && old.startsWith("blob:")) {
+            URL.revokeObjectURL(old);
+          }
+          return { ...data, profilePicture: URL.createObjectURL(blob) };
+        });
+        setProfilePictureError(false);
+        return true;
+      } catch {
+        setFaculty(data);
+        setProfilePictureError(true);
+        toast.error(
+          "Photo was saved but could not be loaded from the server. If this persists after a refresh, ask an admin to check file storage."
+        );
+        return false;
+      }
+    } catch (e) {
+      if (isSessionExpiredError(e)) {
+        toast.error("Session expired. Please sign in again.");
+        logoutUser();
+      } else {
+        toast.error("Could not refresh your profile after upload.");
+      }
+      return false;
     }
   }
 
   async function uploadImage(event) {
-    const file = event.target.files[0];
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const input = event.target;
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const response = await axios.post(
-        `${API_BASE}/faculty/set-faculty-image`,
-        formData,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-            Authorization: "Bearer " + jwtToken,
-          },
-        }
-      );
-      setRenderPage(true);
-      toast.success("Image has been successfully uploaded!");
+      await axios.post(`${API_BASE}/faculty/set-faculty-image`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      input.value = "";
+      const displayed = await reloadFacultyAndProfileImage();
+      if (displayed) {
+        toast.success("Image has been successfully uploaded!");
+      }
     } catch (error) {
-      toast.error("Error Uploading Image, Please upload lower than 10MB");
+      input.value = "";
+      if (isSessionExpiredError(error)) {
+        toast.error("Session expired. Please sign in again.");
+        logoutUser();
+      } else {
+        toast.error("Error Uploading Image, Please upload lower than 10MB");
+      }
     }
   }
 
@@ -258,8 +428,13 @@ export default function FacultyHome() {
       );
       setCertifications(updatedCertifications);
     } catch (e) {
-      console.log(e);
-      logoutUser();
+      console.error(e);
+      if (isSessionExpiredError(e)) {
+        toast.error("Session expired. Please sign in again.");
+        logoutUser();
+      } else {
+        setCertifications([]);
+      }
     }
   }
 
@@ -307,8 +482,13 @@ export default function FacultyHome() {
       });
       setExperiences(response.data);
     } catch (e) {
-      console.log(e);
-      logoutUser();
+      console.error(e);
+      if (isSessionExpiredError(e)) {
+        toast.error("Session expired. Please sign in again.");
+        logoutUser();
+      } else {
+        setExperiences([]);
+      }
     }
   }
 
@@ -356,8 +536,13 @@ export default function FacultyHome() {
       });
       setResearchPapers(response.data);
     } catch (e) {
-      console.log(e);
-      logoutUser();
+      console.error(e);
+      if (isSessionExpiredError(e)) {
+        toast.error("Session expired. Please sign in again.");
+        logoutUser();
+      } else {
+        setResearchPapers([]);
+      }
     }
   }
 
@@ -404,8 +589,13 @@ export default function FacultyHome() {
       });
       setProjects(response.data);
     } catch (e) {
-      console.log(e);
-      logoutUser();
+      console.error(e);
+      if (isSessionExpiredError(e)) {
+        toast.error("Session expired. Please sign in again.");
+        logoutUser();
+      } else {
+        setProjects([]);
+      }
     }
   }
 
@@ -488,15 +678,280 @@ export default function FacultyHome() {
     }
   }
 
+  function openSocialModal() {
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.value = v ?? "";
+    };
+    set("linkedin", social?.linkedin);
+    set("github", social?.github);
+    set("googleScholar", social?.googleScholar);
+    set("orcid", social?.orcid);
+    set("researchGate", social?.researchGate);
+    set("portfolioUrl", social?.portfolioUrl);
+    const el = document.getElementById("socialBackdrop");
+    if (el && window.bootstrap?.Modal) {
+      window.bootstrap.Modal.getOrCreateInstance(el).show();
+    }
+  }
+
+  function openProfileModal() {
+    const el = document.getElementById("profileBackdrop");
+    if (el && window.bootstrap?.Modal) {
+      window.bootstrap.Modal.getOrCreateInstance(el).show();
+    }
+  }
+
+  function openLicenseModal(row) {
+    const set = (id, v) => {
+      const h = document.getElementById(id);
+      if (h) h.value = v ?? "";
+    };
+    set("license_id_field", row?.licenseId != null ? String(row.licenseId) : "");
+    set("license_title", row?.title);
+    set("license_issuingBody", row?.issuingBody);
+    set("license_number", row?.licenseNumber);
+    set("license_expiry", row?.expiryDate ? String(row.expiryDate).slice(0, 10) : "");
+    set("license_verificationUrl", row?.verificationUrl);
+    set("license_notes", row?.notes);
+    const el = document.getElementById("licenseBackdrop");
+    if (el && window.bootstrap?.Modal) {
+      window.bootstrap.Modal.getOrCreateInstance(el).show();
+    }
+  }
+
+  function openGrantModal(row) {
+    const set = (id, v) => {
+      const h = document.getElementById(id);
+      if (h) h.value = v ?? "";
+    };
+    set("grant_id_field", row?.grantId != null ? String(row.grantId) : "");
+    set("grant_title", row?.title);
+    set("grant_agency", row?.fundingAgency);
+    set("grant_amount", row?.amount);
+    set("grant_start", row?.startDate ? String(row.startDate).slice(0, 10) : "");
+    set("grant_end", row?.endDate ? String(row.endDate).slice(0, 10) : "");
+    set("grant_desc", row?.description);
+    set("grant_projectUrl", row?.projectUrl);
+    const el = document.getElementById("grantBackdrop");
+    if (el && window.bootstrap?.Modal) {
+      window.bootstrap.Modal.getOrCreateInstance(el).show();
+    }
+  }
+
+  async function uploadFacultyProfile(e) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const val = (name) => {
+      const el = form.elements.namedItem(name);
+      const raw = el && "value" in el ? el.value : "";
+      return raw != null ? String(raw).trim() : "";
+    };
+    const body = {
+      facultyName: val("facultyName"),
+      department: val("department"),
+      emailId: val("emailId"),
+      contactNumber: val("contactNumber"),
+      designation: val("designation"),
+      address: val("address"),
+    };
+    const dob = val("dateOfBirth");
+    if (dob) {
+      body.dateOfBirth = dob;
+    }
+    try {
+      const putRes = await axios.put(`${API_BASE}/faculty/me`, body, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      if (putRes.data === false) {
+        toast.error("Profile could not be saved. Try again or contact an administrator.");
+        return;
+      }
+      toast.success("Profile updated.");
+      document.getElementById("profileModalButton")?.click();
+      const sub = jwtDecode(jwtToken).sub;
+      const url = `${API_BASE}/faculty/get-faculty/${encodeURIComponent(sub)}`;
+      const response = await axios.get(url, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      setFaculty(response.data || {});
+    } catch (err) {
+      const msg =
+        err.response?.data?.message ||
+        (typeof err.response?.data === "string" ? err.response.data : null);
+      toast.error(msg || "Could not save profile. Check the API is running and you are logged in.");
+    }
+  }
+
+  async function uploadLicense(e) {
+    e.preventDefault();
+    const licenseId = Number(document.getElementById("license_id_field")?.value || 0);
+    const payload = {
+      title: document.getElementById("license_title")?.value?.trim(),
+      issuingBody: document.getElementById("license_issuingBody")?.value?.trim(),
+      licenseNumber: document.getElementById("license_number")?.value?.trim(),
+      expiryDate: document.getElementById("license_expiry")?.value?.trim() || null,
+      verificationUrl: document.getElementById("license_verificationUrl")?.value?.trim(),
+      notes: document.getElementById("license_notes")?.value?.trim(),
+    };
+    try {
+      if (licenseId) {
+        await axios.put(`${API_BASE}/faculty-license/update/${licenseId}`, payload, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        });
+        toast.success("License updated.");
+      } else {
+        await axios.post(`${API_BASE}/faculty-license/add`, payload, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        });
+        toast.success("License added.");
+      }
+      document.getElementById("licenseModalButton")?.click();
+      await fetchLicensesList();
+    } catch (err) {
+      toast.error("Could not save license.");
+    }
+  }
+
+  async function uploadGrant(e) {
+    e.preventDefault();
+    const grantId = Number(document.getElementById("grant_id_field")?.value || 0);
+    const payload = {
+      title: document.getElementById("grant_title")?.value?.trim(),
+      fundingAgency: document.getElementById("grant_agency")?.value?.trim(),
+      amount: document.getElementById("grant_amount")?.value?.trim(),
+      startDate: document.getElementById("grant_start")?.value?.trim() || null,
+      endDate: document.getElementById("grant_end")?.value?.trim() || null,
+      description: document.getElementById("grant_desc")?.value?.trim(),
+      projectUrl: document.getElementById("grant_projectUrl")?.value?.trim(),
+    };
+    try {
+      if (grantId) {
+        await axios.put(`${API_BASE}/faculty-grant/update/${grantId}`, payload, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        });
+        toast.success("Grant updated.");
+      } else {
+        await axios.post(`${API_BASE}/faculty-grant/add`, payload, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        });
+        toast.success("Grant added.");
+      }
+      document.getElementById("grantModalButton")?.click();
+      await fetchGrantsList();
+    } catch (err) {
+      toast.error("Could not save grant.");
+    }
+  }
+
+  async function deleteLicense(licenseId) {
+    if (!window.confirm("Delete this license?")) return;
+    try {
+      await axios.delete(`${API_BASE}/faculty-license/delete/${licenseId}`, {
+        headers: { Authorization: "Bearer " + jwtToken },
+      });
+      toast.success("License removed.");
+      await fetchLicensesList();
+    } catch {
+      toast.error("Could not delete license.");
+    }
+  }
+
+  async function deleteGrant(grantId) {
+    if (!window.confirm("Delete this grant?")) return;
+    try {
+      await axios.delete(`${API_BASE}/faculty-grant/delete/${grantId}`, {
+        headers: { Authorization: "Bearer " + jwtToken },
+      });
+      toast.success("Grant removed.");
+      await fetchGrantsList();
+    } catch {
+      toast.error("Could not delete grant.");
+    }
+  }
+
   async function uploadSocial(e) {
     e.preventDefault();
+    const t = e.target;
+    const body = {
+      linkedin: t.linkedin.value.trim(),
+      github: t.github.value.trim(),
+      googleScholar: t.googleScholar.value.trim(),
+      orcid: t.orcid.value.trim(),
+      researchGate: t.researchGate.value.trim(),
+      portfolioUrl: t.portfolioUrl.value.trim(),
+    };
     try {
-      const response = await axios.post(
-        `${API_BASE}/social/add-social`,
-        {
-          linkedin: e.target.linkedin.value,
-          github: e.target.github.value,
-        },
+      if (social?.socialId) {
+        await axios.put(`${API_BASE}/social/update-social/${social.socialId}`, body, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        });
+      } else {
+        await axios.post(`${API_BASE}/social/add-social`, body, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        });
+      }
+      setSocial((prev) => ({ ...prev, ...body, socialId: prev.socialId }));
+      setRenderPage((p) => !p);
+      toast.success("Social & research links saved.");
+      document.getElementById("socialModalButton")?.click();
+      await getFacultySocial();
+    } catch (error) {
+      console.error(error);
+      toast.error("Something went wrong saving social links.");
+    }
+  }
+
+  async function updateExperience(experience) {
+    const updated = {
+      ...experience,
+      company: window.prompt("Organization name", experience.company) ?? experience.company,
+      designation:
+        window.prompt("Designation", experience.designation) ?? experience.designation,
+      experienceType:
+        window.prompt("Experience type", experience.experienceType) ??
+        experience.experienceType,
+      experienceFrom:
+        window.prompt("Experience from (yyyy-mm-dd)", experience.experienceFrom) ??
+        experience.experienceFrom,
+      experienceTo:
+        window.prompt("Experience to (yyyy-mm-dd)", experience.experienceTo) ??
+        experience.experienceTo,
+    };
+    if (!updated.company?.trim()) return;
+    const previous = [...experiences];
+    setExperiences((prev) =>
+      prev.map((item) => (item.experienceId === experience.experienceId ? updated : item))
+    );
+    setActionLoading(`experience-update-${experience.experienceId}`, true);
+    try {
+      await axios.put(
+        `${API_BASE}/experience/update-experience/${experience.experienceId}`,
+        updated,
         {
           headers: {
             "Content-Type": "application/json",
@@ -504,15 +959,215 @@ export default function FacultyHome() {
           },
         }
       );
-      setRenderPage(true);
-      toast.success("Social Uploaded!");
-      const modal = document.getElementById("socialModalButton");
-      modal.click();
+      toast.success("Experience updated.");
     } catch (error) {
-      console.log(error);
-      toast.error("Something Went Wrong, Please try again...");
-      const modal = document.getElementById("socialModalButton");
-      modal.click();
+      setExperiences(previous);
+      toast.error("Failed to update experience.");
+    } finally {
+      setActionLoading(`experience-update-${experience.experienceId}`, false);
+    }
+  }
+
+  async function deleteExperience(experienceId) {
+    if (!window.confirm("Delete this experience?")) return;
+    const previous = [...experiences];
+    setExperiences((prev) => prev.filter((item) => item.experienceId !== experienceId));
+    setActionLoading(`experience-delete-${experienceId}`, true);
+    try {
+      await axios.delete(`${API_BASE}/experience/delete-experience/${experienceId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      toast.success("Experience deleted.");
+    } catch (error) {
+      setExperiences(previous);
+      toast.error("Failed to delete experience.");
+    } finally {
+      setActionLoading(`experience-delete-${experienceId}`, false);
+    }
+  }
+
+  async function updateResearchPaper(paper) {
+    const updated = {
+      ...paper,
+      publishedTitle:
+        window.prompt("Published title", paper.publishedTitle) ?? paper.publishedTitle,
+      publishedDescription:
+        window.prompt("Published description", paper.publishedDescription) ??
+        paper.publishedDescription,
+      publishedBy: window.prompt("Published by", paper.publishedBy) ?? paper.publishedBy,
+      paperReferences:
+        window.prompt("Paper references URL", paper.paperReferences) ??
+        paper.paperReferences,
+      publishedYear:
+        window.prompt("Published year", paper.publishedYear) ?? paper.publishedYear,
+    };
+    if (!updated.publishedTitle?.trim()) return;
+    const previous = [...researchPapers];
+    setResearchPapers((prev) =>
+      prev.map((item) => (item.paperId === paper.paperId ? updated : item))
+    );
+    setActionLoading(`paper-update-${paper.paperId}`, true);
+    try {
+      await axios.put(`${API_BASE}/research-papers/update-paper/${paper.paperId}`, updated, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      toast.success("Research paper updated.");
+    } catch (error) {
+      setResearchPapers(previous);
+      toast.error("Failed to update research paper.");
+    } finally {
+      setActionLoading(`paper-update-${paper.paperId}`, false);
+    }
+  }
+
+  async function deleteResearchPaper(paperId) {
+    if (!window.confirm("Delete this research paper?")) return;
+    const previous = [...researchPapers];
+    setResearchPapers((prev) => prev.filter((item) => item.paperId !== paperId));
+    setActionLoading(`paper-delete-${paperId}`, true);
+    try {
+      await axios.delete(`${API_BASE}/research-papers/delete-paper/${paperId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      toast.success("Research paper deleted.");
+    } catch (error) {
+      setResearchPapers(previous);
+      toast.error("Failed to delete research paper.");
+    } finally {
+      setActionLoading(`paper-delete-${paperId}`, false);
+    }
+  }
+
+  async function updateFacultyProject(project) {
+    const updated = {
+      ...project,
+      projectTitle:
+        window.prompt("Project title", project.projectTitle) ?? project.projectTitle,
+      description:
+        window.prompt("Project description", project.description) ?? project.description,
+      tags: window.prompt("Tags", project.tags) ?? project.tags,
+      url: window.prompt("Project URL", project.url) ?? project.url,
+      verificationUrl:
+        window.prompt("Verification URL", project.verificationUrl) ??
+        project.verificationUrl,
+    };
+    if (!updated.projectTitle?.trim()) return;
+    const previous = [...projects];
+    setProjects((prev) =>
+      prev.map((item) => (item.projectId === project.projectId ? updated : item))
+    );
+    setActionLoading(`faculty-project-update-${project.projectId}`, true);
+    try {
+      await axios.put(`${API_BASE}/faculty-project/update-project/${project.projectId}`, updated, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      toast.success("Project updated.");
+    } catch (error) {
+      setProjects(previous);
+      toast.error("Failed to update project.");
+    } finally {
+      setActionLoading(`faculty-project-update-${project.projectId}`, false);
+    }
+  }
+
+  async function deleteFacultyProject(projectId) {
+    if (!window.confirm("Delete this project?")) return;
+    const previous = [...projects];
+    setProjects((prev) => prev.filter((item) => item.projectId !== projectId));
+    setActionLoading(`faculty-project-delete-${projectId}`, true);
+    try {
+      await axios.delete(`${API_BASE}/faculty-project/delete-project/${projectId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      toast.success("Project deleted.");
+    } catch (error) {
+      setProjects(previous);
+      toast.error("Failed to delete project.");
+    } finally {
+      setActionLoading(`faculty-project-delete-${projectId}`, false);
+    }
+  }
+
+  async function updateFacultyCertification(certification) {
+    const updated = {
+      ...certification,
+      certificationName:
+        window.prompt("Certification name", certification.certificationName) ??
+        certification.certificationName,
+      expiryDate:
+        window.prompt("Expiry date (yyyy-mm-dd)", certification.expiryDate) ??
+        certification.expiryDate,
+      type: window.prompt("Type", certification.type) ?? certification.type,
+      verification:
+        window.prompt("Verification URL", certification.verification) ??
+        certification.verification,
+    };
+    if (!updated.certificationName?.trim()) return;
+    const previous = [...certifications];
+    setCertifications((prev) =>
+      prev.map((item) =>
+        item.certificationId === certification.certificationId ? updated : item
+      )
+    );
+    setActionLoading(`faculty-cert-update-${certification.certificationId}`, true);
+    try {
+      await axios.put(
+        `${API_BASE}/faculty-certification/update-certification/${certification.certificationId}`,
+        updated,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        }
+      );
+      toast.success("Certification updated.");
+    } catch (error) {
+      setCertifications(previous);
+      toast.error("Failed to update certification.");
+    } finally {
+      setActionLoading(`faculty-cert-update-${certification.certificationId}`, false);
+    }
+  }
+
+  async function deleteFacultyCertification(certificationId) {
+    if (!window.confirm("Delete this certification?")) return;
+    const previous = [...certifications];
+    setCertifications((prev) =>
+      prev.filter((item) => item.certificationId !== certificationId)
+    );
+    setActionLoading(`faculty-cert-delete-${certificationId}`, true);
+    try {
+      await axios.delete(
+        `${API_BASE}/faculty-certification/delete-certification/${certificationId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        }
+      );
+      toast.success("Certification deleted.");
+    } catch (error) {
+      setCertifications(previous);
+      toast.error("Failed to delete certification.");
+    } finally {
+      setActionLoading(`faculty-cert-delete-${certificationId}`, false);
     }
   }
 
@@ -626,7 +1281,7 @@ export default function FacultyHome() {
                   alt="user_logo"
                   className="img-fluid user_logo"
                 />
-                {" " + faculty.facultyName}
+                {" " + facultyDisplayName}
               </Link>
               <ul className="dropdown-menu mt-3">
                 <li>
@@ -704,31 +1359,53 @@ export default function FacultyHome() {
                     />
                   </div>
                   <div className="col-sm-10 mt-3 mt-sm-0">
-                    <h3>{faculty.facultyName}</h3>
+                    <div className="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                      <h3 className="mb-0">{facultyDisplayName}</h3>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={openProfileModal}
+                      >
+                        Edit profile
+                      </button>
+                    </div>
                     <div className="mt-2 text-muted">
                       <b>
-                        Faculty ID: {username} | Dept: {faculty.department}
+                        Faculty ID: {loginId || username || "—"} | Dept:{" "}
+                        {departmentDisplay}
                       </b>
                     </div>
                     <div className="mt-2 text-muted">
-                      {faculty.designation}, Vaagdevi College of Engineering
+                      {faculty.designation
+                        ? `${faculty.designation}, Vaagdevi College of Engineering`
+                        : "Vaagdevi College of Engineering"}
                     </div>
                     <div className="row mt-2">
                       <div className="col-lg-4 col-sm-6 col-12 text-muted">
-                        <img
-                          src={telephone_logo}
-                          alt="telephone_logo"
-                          className="img-fluid icons-home-page"
-                        />{" "}
-                        {faculty.contactNumber}
+                        <a
+                          href={faculty.contactNumber ? `tel:${faculty.contactNumber}` : "#"}
+                          className="text-muted text-decoration-none"
+                        >
+                          <img
+                            src={telephone_logo}
+                            alt="telephone_logo"
+                            className="img-fluid icons-home-page"
+                          />{" "}
+                          {faculty.contactNumber}
+                        </a>
                       </div>
                       <div className="col-lg-6 col-sm-6 col-12 text-muted">
-                        <img
-                          src={email_logo}
-                          alt="email_logo"
-                          className="img-fluid icons-home-page"
-                        />{" "}
-                        {faculty.emailId}
+                        <a
+                          href={faculty.emailId ? `mailto:${faculty.emailId}` : "#"}
+                          className="text-muted text-decoration-none"
+                        >
+                          <img
+                            src={email_logo}
+                            alt="email_logo"
+                            className="img-fluid icons-home-page"
+                          />{" "}
+                          {faculty.emailId}
+                        </a>
                       </div>
                     </div>
                     <div className="row mt-4">
@@ -736,36 +1413,95 @@ export default function FacultyHome() {
                         <div>
                           {socialProfileError ? (
                             <>
-                              <a
-                                href={social.linkedin}
-                                target="_blank"
-                                rel="noreferrer"
+                              <div className="d-flex flex-wrap align-items-center gap-3 faculty-social-icons-row">
+                                <a
+                                  href={normalizeExternalUrl(social.linkedin)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={`faculty-social-icon-link ${!social?.linkedin ? "pe-none opacity-50" : ""}`}
+                                  title="LinkedIn"
+                                  aria-label="LinkedIn profile"
+                                >
+                                  <i
+                                    className="bi bi-linkedin faculty-social-bi"
+                                    style={{ color: "#0A66C2" }}
+                                    aria-hidden
+                                  />
+                                </a>
+                                <a
+                                  href={normalizeExternalUrl(social.github)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={`faculty-social-icon-link ${!social?.github ? "pe-none opacity-50" : ""}`}
+                                  title="GitHub"
+                                  aria-label="GitHub profile"
+                                >
+                                  <i className="bi bi-github faculty-social-bi text-dark" aria-hidden />
+                                </a>
+                                {social?.googleScholar && (
+                                  <a
+                                    className="faculty-social-icon-link"
+                                    href={normalizeExternalUrl(social.googleScholar)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="Google Scholar"
+                                    aria-label="Google Scholar profile"
+                                  >
+                                    <GoogleScholarIcon size={34} className="faculty-social-svg" />
+                                  </a>
+                                )}
+                                {social?.orcid && (
+                                  <a
+                                    className="faculty-social-icon-link"
+                                    href={normalizeExternalUrl(social.orcid)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="ORCID"
+                                    aria-label="ORCID profile"
+                                  >
+                                    <OrcidIcon size={34} className="faculty-social-svg" />
+                                  </a>
+                                )}
+                                {social?.researchGate && (
+                                  <a
+                                    className="faculty-social-icon-link"
+                                    href={normalizeExternalUrl(social.researchGate)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="ResearchGate"
+                                    aria-label="ResearchGate profile"
+                                  >
+                                    <ResearchGateIcon size={34} className="faculty-social-svg" />
+                                  </a>
+                                )}
+                                {social?.portfolioUrl && (
+                                  <a
+                                    className="faculty-social-icon-link"
+                                    href={normalizeExternalUrl(social.portfolioUrl)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    title="Website / lab / portfolio"
+                                    aria-label="Website or portfolio"
+                                  >
+                                    <i className="bi bi-globe2 faculty-social-bi text-secondary" aria-hidden />
+                                  </a>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                className="btn btn-sm btn-outline-secondary mt-2"
+                                onClick={openSocialModal}
                               >
-                                <img
-                                  src={linkedin_student_logo}
-                                  alt="linkedin_student_logo"
-                                  className="img-fluid linkedin-logo-faculty"
-                                />
-                              </a>
-                              <a
-                                href={social.github}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                <img
-                                  src={github_student_logo}
-                                  alt="github_student_logo"
-                                  className="img-fluid github-logo-faculty"
-                                />
-                              </a>
+                                Edit links &amp; profiles
+                              </button>
                             </>
                           ) : (
                             <button
-                              data-bs-toggle="modal"
-                              data-bs-target="#socialBackdrop"
+                              type="button"
+                              onClick={openSocialModal}
                               className="btn btn-dark text-white"
                             >
-                              Add Social?
+                              Add social &amp; research links
                             </button>
                           )}
                         </div>
@@ -778,26 +1514,32 @@ export default function FacultyHome() {
 
             <div className="card mt-4 shadow">
               <div className="card-body">
-                <div className="row">
-                  <div className="col-12">
-                    <button
-                      type="button"
-                      className="bi btn bi-plus-lg float-end"
-                      data-bs-toggle="modal"
-                      data-bs-target="#achievementBackdrop"
-                    ></button>
-                    <h5>
+                <div className="row align-items-start g-2">
+                  <div className="col min-w-0">
+                    <h5 className="mb-1">
                       <b>Certifications</b>
                     </h5>
-                    Talk about the certifications you have completed, What
-                    projects you undertook and what special skills you learned.
+                    <p className="text-muted small mb-0">
+                      Talk about the certifications you have completed, What
+                      projects you undertook and what special skills you learned.
+                    </p>
+                  </div>
+                  <div className="col-auto d-flex flex-column align-items-end gap-1 flex-shrink-0">
                     <button
                       type="button"
-                      className="bi btn bi-caret-down-fill float-end"
+                      className="bi btn bi-plus-lg"
+                      data-bs-toggle="modal"
+                      data-bs-target="#achievementBackdrop"
+                      aria-label="Add certification"
+                    ></button>
+                    <button
+                      type="button"
+                      className="bi btn bi-caret-down-fill"
                       data-bs-toggle="collapse"
                       data-bs-target="#certificationsDropdown"
                       aria-expanded="false"
                       aria-controls="certificationsDropdown"
+                      aria-label="Expand certifications"
                     ></button>
                   </div>
                 </div>
@@ -814,6 +1556,31 @@ export default function FacultyHome() {
                       <p>Expiry Date: {certification.expiryDate}</p>
                       <p>Verification: {certification.verification}</p>
                       <p>Type: {certification.type}</p>
+                      <a
+                        href={normalizeExternalUrl(certification.verification)}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Open Verification
+                      </a>
+                      <div className="d-flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          disabled={!!pendingActions[`faculty-cert-update-${certification.certificationId}`]}
+                          onClick={() => updateFacultyCertification(certification)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          disabled={!!pendingActions[`faculty-cert-delete-${certification.certificationId}`]}
+                          onClick={() => deleteFacultyCertification(certification.certificationId)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                     <div className="col-6">
                       <img
@@ -829,26 +1596,32 @@ export default function FacultyHome() {
 
             <div className="card mt-4 shadow">
               <div className="card-body">
-                <div className="row">
-                  <div className="col-12">
-                    <button
-                      type="button"
-                      className="bi btn bi-plus-lg float-end"
-                      data-bs-toggle="modal"
-                      data-bs-target="#researchPaperBackdrop"
-                    ></button>
-                    <h5>
+                <div className="row align-items-start g-2">
+                  <div className="col min-w-0">
+                    <h5 className="mb-1">
                       <b>Research Papers</b>
                     </h5>
-                    Talk about the Research Papers you have completed, What
-                    projects you undertook and what special skills you learned.
+                    <p className="text-muted small mb-0">
+                      Talk about the Research Papers you have completed, What
+                      projects you undertook and what special skills you learned.
+                    </p>
+                  </div>
+                  <div className="col-auto d-flex flex-column align-items-end gap-1 flex-shrink-0">
                     <button
                       type="button"
-                      className="bi btn bi-caret-down-fill float-end"
+                      className="bi btn bi-plus-lg"
+                      data-bs-toggle="modal"
+                      data-bs-target="#researchPaperBackdrop"
+                      aria-label="Add research paper"
+                    ></button>
+                    <button
+                      type="button"
+                      className="bi btn bi-caret-down-fill"
                       data-bs-toggle="collapse"
                       data-bs-target="#researchPapersDropdown"
                       aria-expanded="false"
                       aria-controls="researchPapersDropdown"
+                      aria-label="Expand research papers"
                     ></button>
                   </div>
                 </div>
@@ -867,6 +1640,31 @@ export default function FacultyHome() {
                       </p>
                       <p>Published Title: {researchPaper.publishedTitle}</p>
                       <p>Published Year: {researchPaper.publishedYear}</p>
+                      <a
+                        href={normalizeExternalUrl(researchPaper.paperReferences)}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Open Reference Link
+                      </a>
+                      <div className="d-flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          disabled={!!pendingActions[`paper-update-${researchPaper.paperId}`]}
+                          onClick={() => updateResearchPaper(researchPaper)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          disabled={!!pendingActions[`paper-delete-${researchPaper.paperId}`]}
+                          onClick={() => deleteResearchPaper(researchPaper.paperId)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -875,26 +1673,32 @@ export default function FacultyHome() {
 
             <div className="card mt-4 shadow">
               <div className="card-body">
-                <div className="row">
-                  <div className="col-12">
-                    <button
-                      type="button"
-                      className="bi btn bi-plus-lg float-end"
-                      data-bs-toggle="modal"
-                      data-bs-target="#experienceBackdrop"
-                    ></button>
-                    <h5>
+                <div className="row align-items-start g-2">
+                  <div className="col min-w-0">
+                    <h5 className="mb-1">
                       <b>Experiences</b>
                     </h5>
-                    Talk about the experiences you have completed, What projects
-                    you undertook and what special skills you learned.
+                    <p className="text-muted small mb-0">
+                      Talk about the experiences you have completed, What projects
+                      you undertook and what special skills you learned.
+                    </p>
+                  </div>
+                  <div className="col-auto d-flex flex-column align-items-end gap-1 flex-shrink-0">
                     <button
                       type="button"
-                      className="bi btn bi-caret-down-fill float-end"
+                      className="bi btn bi-plus-lg"
+                      data-bs-toggle="modal"
+                      data-bs-target="#experienceBackdrop"
+                      aria-label="Add experience"
+                    ></button>
+                    <button
+                      type="button"
+                      className="bi btn bi-caret-down-fill"
                       data-bs-toggle="collapse"
                       data-bs-target="#experiencesDropdown"
                       aria-expanded="false"
                       aria-controls="experiencesDropdown"
+                      aria-label="Expand experiences"
                     ></button>
                   </div>
                 </div>
@@ -910,6 +1714,24 @@ export default function FacultyHome() {
                       <p>Experience From: {experience.experienceFrom}</p>
                       <p>Experience To: {experience.experienceTo}</p>
                       <p>Experience Type: {experience.experienceType}</p>
+                      <div className="d-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          disabled={!!pendingActions[`experience-update-${experience.experienceId}`]}
+                          onClick={() => updateExperience(experience)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          disabled={!!pendingActions[`experience-delete-${experience.experienceId}`]}
+                          onClick={() => deleteExperience(experience.experienceId)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -918,26 +1740,32 @@ export default function FacultyHome() {
 
             <div className="card mt-4 shadow">
               <div className="card-body">
-                <div className="row">
-                  <div className="col-12">
-                    <button
-                      type="button"
-                      className="bi btn bi-plus-lg float-end"
-                      data-bs-toggle="modal"
-                      data-bs-target="#projectBackdrop"
-                    ></button>
-                    <h5>
+                <div className="row align-items-start g-2">
+                  <div className="col min-w-0">
+                    <h5 className="mb-1">
                       <b>Projects</b>
                     </h5>
-                    Talk about the projects that made you proud and contributed
-                    to your learnings.
+                    <p className="text-muted small mb-0">
+                      Talk about the projects that made you proud and contributed
+                      to your learnings.
+                    </p>
+                  </div>
+                  <div className="col-auto d-flex flex-column align-items-end gap-1 flex-shrink-0">
                     <button
                       type="button"
-                      className="bi btn bi-caret-down-fill float-end"
+                      className="bi btn bi-plus-lg"
+                      data-bs-toggle="modal"
+                      data-bs-target="#projectBackdrop"
+                      aria-label="Add project"
+                    ></button>
+                    <button
+                      type="button"
+                      className="bi btn bi-caret-down-fill"
                       data-bs-toggle="collapse"
                       data-bs-target="#projectsDropdown"
                       aria-expanded="false"
                       aria-controls="projectsDropdown"
+                      aria-label="Expand projects"
                     ></button>
                   </div>
                 </div>
@@ -949,37 +1777,210 @@ export default function FacultyHome() {
                   <p>Title: {project.projectTitle}</p>
                   <p>Description: {project.description}</p>
                   <p>Tags: {project.tags}</p>
-                  <a href={project.url} rel="noreferrer" target="_blank">
+                  <a
+                    href={normalizeExternalUrl(project.url)}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
                     {project.url}
                   </a>
+                  <a
+                    href={normalizeExternalUrl(project.verificationUrl)}
+                    rel="noreferrer"
+                    target="_blank"
+                    className="d-block"
+                  >
+                    {project.verificationUrl}
+                  </a>
+                  <div className="d-flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      disabled={!!pendingActions[`faculty-project-update-${project.projectId}`]}
+                      onClick={() => updateFacultyProject(project)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      disabled={!!pendingActions[`faculty-project-delete-${project.projectId}`]}
+                      onClick={() => deleteFacultyProject(project.projectId)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
 
             <div className="card mt-4 shadow">
               <div className="card-body">
-                <div className="row">
-                  <div className="col-12">
+                <div className="row align-items-start g-2">
+                  <div className="col min-w-0">
+                    <h5 className="mb-1">
+                      <b>Professional licenses</b>
+                    </h5>
+                    <p className="text-muted small mb-0">
+                      Teaching credentials, industry certifications, bar memberships, etc.
+                    </p>
+                  </div>
+                  <div className="col-auto d-flex flex-column align-items-end gap-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      className="bi btn bi-plus-lg"
+                      onClick={() => openLicenseModal(null)}
+                      aria-label="Add license"
+                    ></button>
+                    <button
+                      type="button"
+                      className="bi btn bi-caret-down-fill"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#licensesDropdown"
+                      aria-expanded="false"
+                      aria-controls="licensesDropdown"
+                      aria-label="Expand professional licenses"
+                    ></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="collapse shadow" id="licensesDropdown">
+              {licenses.map((lic) => (
+                <div className="card card-body" key={lic.licenseId}>
+                  <p className="mb-1">
+                    <strong>{lic.title}</strong>
+                  </p>
+                  {lic.issuingBody && <p className="mb-1">Issued by: {lic.issuingBody}</p>}
+                  {lic.licenseNumber && <p className="mb-1">Number: {lic.licenseNumber}</p>}
+                  {lic.expiryDate && <p className="mb-1">Expires: {String(lic.expiryDate).slice(0, 10)}</p>}
+                  {lic.verificationUrl && (
+                    <a href={normalizeExternalUrl(lic.verificationUrl)} target="_blank" rel="noreferrer">
+                      Verification link
+                    </a>
+                  )}
+                  {lic.notes && <p className="mb-0 mt-2 small">{lic.notes}</p>}
+                  <div className="d-flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => openLicenseModal(lic)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => deleteLicense(lic.licenseId)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="card mt-4 shadow">
+              <div className="card-body">
+                <div className="row align-items-start g-2">
+                  <div className="col min-w-0">
+                    <h5 className="mb-1">
+                      <b>Research grants &amp; funding</b>
+                    </h5>
+                    <p className="text-muted small mb-0">
+                      Sponsored projects, seed funds, government or industry grants.
+                    </p>
+                  </div>
+                  <div className="col-auto d-flex flex-column align-items-end gap-1 flex-shrink-0">
+                    <button
+                      type="button"
+                      className="bi btn bi-plus-lg"
+                      onClick={() => openGrantModal(null)}
+                      aria-label="Add grant"
+                    ></button>
+                    <button
+                      type="button"
+                      className="bi btn bi-caret-down-fill"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#grantsDropdown"
+                      aria-expanded="false"
+                      aria-controls="grantsDropdown"
+                      aria-label="Expand research grants"
+                    ></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="collapse shadow" id="grantsDropdown">
+              {grants.map((g) => (
+                <div className="card card-body" key={g.grantId}>
+                  <p className="mb-1">
+                    <strong>{g.title}</strong>
+                  </p>
+                  {g.fundingAgency && <p className="mb-1">Agency: {g.fundingAgency}</p>}
+                  {g.amount && <p className="mb-1">Amount: {g.amount}</p>}
+                  {(g.startDate || g.endDate) && (
+                    <p className="mb-1">
+                      Period: {g.startDate ? String(g.startDate).slice(0, 10) : "—"} —{" "}
+                      {g.endDate ? String(g.endDate).slice(0, 10) : "—"}
+                    </p>
+                  )}
+                  {g.description && <p className="mb-1">{g.description}</p>}
+                  {g.projectUrl && (
+                    <a href={normalizeExternalUrl(g.projectUrl)} target="_blank" rel="noreferrer">
+                      Project link
+                    </a>
+                  )}
+                  <div className="d-flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => openGrantModal(g)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      onClick={() => deleteGrant(g.grantId)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="card mt-4 shadow">
+              <div className="card-body">
+                <div className="row align-items-start g-2">
+                  <div className="col min-w-0">
+                    <h5 className="mb-1">
+                      <b>Personal Documents</b>
+                    </h5>
+                    <p className="text-muted small mb-0">
+                      Talk about the Personal Documents that made you proud and
+                      contributed to your learnings.
+                    </p>
+                  </div>
+                  <div className="col-auto d-flex flex-column align-items-end gap-1 flex-shrink-0">
                     {!addDocuments && (
                       <button
                         type="button"
-                        className="bi btn bi-plus-lg float-end"
+                        className="bi btn bi-plus-lg"
                         data-bs-toggle="modal"
                         data-bs-target="#personalDocumentBackdrop"
+                        aria-label="Add personal documents"
                       ></button>
                     )}
-                    <h5>
-                      <b>Personal Documents</b>
-                    </h5>
-                    Talk about the Personal Documents that made you proud and
-                    contributed to your learnings.
                     <button
                       type="button"
-                      className="bi btn bi-caret-down-fill float-end"
+                      className="bi btn bi-caret-down-fill"
                       data-bs-toggle="collapse"
                       data-bs-target="#personalDocumentsDropdown"
                       aria-expanded="false"
                       aria-controls="personalDocumentsDropdown"
+                      aria-label="Expand personal documents"
                     ></button>
                   </div>
                 </div>
@@ -1012,20 +2013,25 @@ export default function FacultyHome() {
               <>
                 <div className="card mt-4 shadow">
                   <div className="card-body">
-                    <div className="row">
-                      <div className="col-12">
-                        <h5>
+                    <div className="row align-items-start g-2">
+                      <div className="col min-w-0">
+                        <h5 className="mb-1">
                           <b>Department Students</b>
                         </h5>
-                        Check about the Department Students that made you proud
-                        and contributed to your learnings.
+                        <p className="text-muted small mb-0">
+                          Check about the Department Students that made you proud
+                          and contributed to your learnings.
+                        </p>
+                      </div>
+                      <div className="col-auto d-flex flex-column align-items-end gap-1 flex-shrink-0">
                         <button
                           type="button"
-                          className="bi btn bi-caret-down-fill float-end"
+                          className="bi btn bi-caret-down-fill"
                           data-bs-toggle="collapse"
                           data-bs-target="#studentsDocumentsDropdown"
                           aria-expanded="false"
                           aria-controls="studentsDocumentsDropdown"
+                          aria-label="Expand department students"
                         ></button>
                       </div>
                     </div>
@@ -1091,8 +2097,13 @@ export default function FacultyHome() {
               uploadDocuments={uploadDocuments}
               uploadSocial={uploadSocial}
               uploadPassword={uploadPassword}
+              uploadFacultyProfile={uploadFacultyProfile}
+              uploadLicense={uploadLicense}
+              uploadGrant={uploadGrant}
               departmentStudents={departmentStudents}
               uploadStudentPassword={uploadStudentPassword}
+              socialDefaults={social}
+              profileDefaults={faculty}
             />
           </div>
         </div>

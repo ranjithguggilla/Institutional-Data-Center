@@ -102,6 +102,28 @@ export default function StudentCrudForm({
                 onChange={onChange}
               />
             </div>
+            <div className="col-md-6">
+              <label className="form-label">LinkedIn URL</label>
+              <input
+                type="url"
+                className="form-control"
+                name="linkedinUrl"
+                value={formData.linkedinUrl || ""}
+                onChange={onChange}
+                placeholder="https://linkedin.com/in/username"
+              />
+            </div>
+            <div className="col-md-6">
+              <label className="form-label">GitHub URL</label>
+              <input
+                type="url"
+                className="form-control"
+                name="githubUrl"
+                value={formData.githubUrl || ""}
+                onChange={onChange}
+                placeholder="https://github.com/username"
+              />
+            </div>
           </div>
           <div className="d-flex gap-2 mt-3">
             <button type="submit" className="btn btn-danger" disabled={submitting}>

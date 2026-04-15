@@ -10,11 +10,16 @@ import upload_image_logo from "../images/logo/upload_logo_student.jpg";
 import "../css/student_home.css";
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { Helmet } from "react-helmet-async";
 import Modals from "./Modals";
 import { API_BASE } from "../../apiBase";
+
+function isAuthError(error) {
+  const s = error?.response?.status;
+  return s === 401 || s === 403;
+}
 
 export default function StudentHome() {
   const { jwtToken, logoutUser, redirectUser } = useContext(AuthContext);
@@ -26,15 +31,43 @@ export default function StudentHome() {
   const [projects, setProjects] = useState([]);
   const [achievements, setAchievements] = useState([]);
   const [internships, setInternships] = useState([]);
+  const [profileForm, setProfileForm] = useState({
+    studentName: "",
+    emailId: "",
+    mobileNumber: "",
+    department: "",
+    batch: "",
+    cgpa: "",
+    linkedinUrl: "",
+    githubUrl: "",
+  });
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [pendingActions, setPendingActions] = useState({});
+
+  function setActionLoading(key, value) {
+    setPendingActions((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function normalizeExternalUrl(url) {
+    if (!url) return "";
+    const trimmed = String(url).trim();
+    if (!trimmed) return "";
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  }
 
   useEffect(() => {
+    if (!jwtToken) return;
     getStudentObject();
     try {
       setUsername(jwtDecode(jwtToken).sub);
     } catch (e) {}
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load profile when token appears
+  }, [jwtToken]);
 
   useEffect(() => {
+    if (!jwtToken) return;
+
     async function getSkills() {
       try {
         const url = `${API_BASE}/skill/get-all-skills-by-id`;
@@ -46,7 +79,7 @@ export default function StudentHome() {
         });
         setSkills(response.data);
       } catch (e) {
-        logoutUser();
+        if (isAuthError(e)) logoutUser();
       }
     }
 
@@ -61,7 +94,7 @@ export default function StudentHome() {
         });
         setProjects(response.data);
       } catch (e) {
-        logoutUser();
+        if (isAuthError(e)) logoutUser();
       }
     }
 
@@ -99,7 +132,7 @@ export default function StudentHome() {
         );
         setAchievements(updatedAchievements);
       } catch (e) {
-        logoutUser();
+        if (isAuthError(e)) logoutUser();
       }
     }
 
@@ -139,7 +172,7 @@ export default function StudentHome() {
         setInternships(updatedInternships);
       } catch (e) {
         console.log("Error fetching internships:", e);
-        logoutUser();
+        if (isAuthError(e)) logoutUser();
       }
     }
 
@@ -151,19 +184,19 @@ export default function StudentHome() {
     }
 
     fetchData();
-  }, [renderPage]);
+  }, [renderPage, jwtToken]);
 
   useEffect(() => {
-    if (!jwtToken) {
-      logoutUser();
+    if (jwtToken) {
+      redirectUser("STUDENT");
     }
-    redirectUser("STUDENT");
-  }, [logoutUser]);
+  }, [jwtToken]);
 
   async function getStudentObject() {
+    if (!jwtToken) return;
     try {
-      const url =
-        `${API_BASE}/student/get-student/${jwtDecode(jwtToken).sub}`;
+      const sub = jwtDecode(jwtToken).sub;
+      const url = `${API_BASE}/student/get-student/${encodeURIComponent(sub)}`;
       const response = await axios.get(url, {
         headers: {
           "Content-Type": "application/json",
@@ -171,9 +204,32 @@ export default function StudentHome() {
         },
       });
       setStudent(response.data);
-      await getStudentImage(response.data.profilePicture);
+      setProfileForm({
+        studentName: response.data.studentName || "",
+        emailId: response.data.emailId || "",
+        mobileNumber: response.data.mobileNumber || "",
+        department: response.data.department || "",
+        batch: response.data.batch || "",
+        cgpa: response.data.cgpa || "",
+        linkedinUrl: response.data.linkedinUrl || "",
+        githubUrl: response.data.githubUrl || "",
+      });
+      if (response.data.profilePicture) {
+        await getStudentImage(response.data.profilePicture);
+      } else {
+        setProfilePictureError(true);
+      }
     } catch (e) {
-      logoutUser();
+      if (isAuthError(e)) {
+        logoutUser();
+      } else {
+        console.error(e);
+        toast.error(
+          "Could not load your student profile. If you just registered, restart the API and try again."
+        );
+        setStudent({});
+        setProfilePictureError(true);
+      }
     }
   }
 
@@ -340,7 +396,7 @@ export default function StudentHome() {
       const formData = new FormData();
       formData.append("internshipName", e.target.internshipName.value);
       formData.append("companyName", e.target.companyName.value);
-      formData.append("cdomain", e.target.domain.value);
+      formData.append("domain", e.target.cdomain.value);
       formData.append("startDate", e.target.startDate.value);
       formData.append("endDate", e.target.endDate.value);
       formData.append("file", e.target.internshipFile.files[0]);
@@ -362,7 +418,7 @@ export default function StudentHome() {
       modal.click();
       e.target.internshipName.value = "";
       e.target.companyName.value = "";
-      e.target.domain.value = "";
+      e.target.cdomain.value = "";
       e.target.startDate.value = "";
       e.target.endDate.value = "";
       e.target.internshipFile.value = null;
@@ -415,6 +471,324 @@ export default function StudentHome() {
     } catch (error) {
       toast.error("Error Uploading Image, Please upload lower than 10MB");
     }
+  }
+
+  async function saveProfile(e) {
+    e.preventDefault();
+    if (!jwtToken) return;
+    let sub;
+    try {
+      sub = jwtDecode(jwtToken).sub;
+    } catch {
+      toast.error("Session invalid. Please sign in again.");
+      return;
+    }
+    const id = String(sub).trim();
+    const previousStudent = { ...student };
+    const nextStudent = {
+      ...student,
+      studentId: id,
+      studentName: profileForm.studentName.trim(),
+      emailId: profileForm.emailId.trim(),
+      mobileNumber: profileForm.mobileNumber.trim(),
+      department: profileForm.department.trim(),
+      batch: profileForm.batch.trim(),
+      cgpa: profileForm.cgpa.trim(),
+      linkedinUrl: profileForm.linkedinUrl.trim(),
+      githubUrl: profileForm.githubUrl.trim(),
+      studentGender:
+        typeof student.studentGender === "boolean" ? student.studentGender : false,
+    };
+    setStudent(nextStudent);
+    setActionLoading("profile-save", true);
+    try {
+      const res = await axios.put(
+        `${API_BASE}/student/update-student/${encodeURIComponent(id)}`,
+        nextStudent,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        }
+      );
+      if (res.data === false) {
+        throw new Error("Server rejected save");
+      }
+      toast.success("Profile updated successfully.");
+      setIsEditingProfile(false);
+    } catch (error) {
+      setStudent(previousStudent);
+      const msg =
+        error?.response?.data?.message ||
+        (typeof error?.response?.data === "string"
+          ? error.response.data.slice(0, 200)
+          : null);
+      toast.error(msg || "Failed to update profile.");
+    } finally {
+      setActionLoading("profile-save", false);
+    }
+  }
+
+  async function updateSkill(skill) {
+    const updatedSkill = {
+      ...skill,
+      skill: window.prompt("Skill name", skill.skill) ?? skill.skill,
+      domain: window.prompt("Skill domain", skill.domain) ?? skill.domain,
+    };
+    if (!updatedSkill.skill.trim() || !updatedSkill.domain.trim()) return;
+    const previousSkills = [...skills];
+    setSkills((prev) =>
+      prev.map((item) => (item.skillId === skill.skillId ? updatedSkill : item))
+    );
+    setActionLoading(`skill-update-${skill.skillId}`, true);
+    try {
+      await axios.put(
+        `${API_BASE}/skill/update-skill/${skill.skillId}`,
+        updatedSkill,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        }
+      );
+      toast.success("Skill updated.");
+    } catch (error) {
+      setSkills(previousSkills);
+      toast.error("Failed to update skill.");
+    } finally {
+      setActionLoading(`skill-update-${skill.skillId}`, false);
+    }
+  }
+
+  async function deleteSkill(skillId) {
+    if (!window.confirm("Delete this skill?")) return;
+    const previousSkills = [...skills];
+    setSkills((prev) => prev.filter((item) => item.skillId !== skillId));
+    setActionLoading(`skill-delete-${skillId}`, true);
+    try {
+      await axios.delete(`${API_BASE}/skill/delete-skill/${skillId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      toast.success("Skill deleted.");
+    } catch (error) {
+      setSkills(previousSkills);
+      toast.error("Failed to delete skill.");
+    } finally {
+      setActionLoading(`skill-delete-${skillId}`, false);
+    }
+  }
+
+  async function updateProject(project) {
+    const updatedProject = {
+      ...project,
+      projectTitle:
+        window.prompt("Project title", project.projectTitle) ?? project.projectTitle,
+      description:
+        window.prompt("Project description", project.description) ??
+        project.description,
+      tags: window.prompt("Project tags", project.tags) ?? project.tags,
+      url: window.prompt("Project URL", project.url) ?? project.url,
+      verificationUrl:
+        window.prompt("Verification URL", project.verificationUrl) ??
+        project.verificationUrl,
+    };
+    if (!updatedProject.projectTitle.trim()) return;
+    const previousProjects = [...projects];
+    setProjects((prev) =>
+      prev.map((item) =>
+        item.projectId === project.projectId ? updatedProject : item
+      )
+    );
+    setActionLoading(`project-update-${project.projectId}`, true);
+    try {
+      await axios.put(
+        `${API_BASE}/project/update-project/${project.projectId}`,
+        updatedProject,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        }
+      );
+      toast.success("Project updated.");
+    } catch (error) {
+      setProjects(previousProjects);
+      toast.error("Failed to update project.");
+    } finally {
+      setActionLoading(`project-update-${project.projectId}`, false);
+    }
+  }
+
+  async function deleteProject(projectId) {
+    if (!window.confirm("Delete this project?")) return;
+    const previousProjects = [...projects];
+    setProjects((prev) => prev.filter((item) => item.projectId !== projectId));
+    setActionLoading(`project-delete-${projectId}`, true);
+    try {
+      await axios.delete(`${API_BASE}/project/delete-project/${projectId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      toast.success("Project deleted.");
+    } catch (error) {
+      setProjects(previousProjects);
+      toast.error("Failed to delete project.");
+    } finally {
+      setActionLoading(`project-delete-${projectId}`, false);
+    }
+  }
+
+  async function updateAchievement(achievement) {
+    const updatedAchievement = {
+      ...achievement,
+      certificationName:
+        window.prompt("Achievement name", achievement.certificationName) ??
+        achievement.certificationName,
+      expiryDate: window.prompt("Expiry date (yyyy-mm-dd)", achievement.expiryDate) ?? achievement.expiryDate,
+      verification:
+        window.prompt("Verification", achievement.verification) ??
+        achievement.verification,
+      type: window.prompt("Type (Technical/Non-Technical)", achievement.type) ?? achievement.type,
+    };
+    if (!updatedAchievement.certificationName.trim()) return;
+    const previousAchievements = [...achievements];
+    setAchievements((prev) =>
+      prev.map((item) =>
+        item.certificationId === achievement.certificationId
+          ? updatedAchievement
+          : item
+      )
+    );
+    setActionLoading(`achievement-update-${achievement.certificationId}`, true);
+    try {
+      await axios.put(
+        `${API_BASE}/certification/update-certification/${achievement.certificationId}`,
+        updatedAchievement,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        }
+      );
+      toast.success("Achievement updated.");
+    } catch (error) {
+      setAchievements(previousAchievements);
+      toast.error("Failed to update achievement.");
+    } finally {
+      setActionLoading(`achievement-update-${achievement.certificationId}`, false);
+    }
+  }
+
+  async function deleteAchievement(certificationId) {
+    if (!window.confirm("Delete this achievement?")) return;
+    const previousAchievements = [...achievements];
+    setAchievements((prev) =>
+      prev.filter((item) => item.certificationId !== certificationId)
+    );
+    setActionLoading(`achievement-delete-${certificationId}`, true);
+    try {
+      await axios.delete(
+        `${API_BASE}/certification/delete-certification/${certificationId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        }
+      );
+      toast.success("Achievement deleted.");
+    } catch (error) {
+      setAchievements(previousAchievements);
+      toast.error("Failed to delete achievement.");
+    } finally {
+      setActionLoading(`achievement-delete-${certificationId}`, false);
+    }
+  }
+
+  async function updateInternship(internship) {
+    const updatedInternship = {
+      ...internship,
+      internshipName:
+        window.prompt("Internship name", internship.internshipName) ??
+        internship.internshipName,
+      companyName:
+        window.prompt("Company name", internship.companyName) ??
+        internship.companyName,
+      domain: window.prompt("Domain", internship.domain) ?? internship.domain,
+      startDate:
+        window.prompt("Start date (yyyy-mm-dd)", internship.startDate) ??
+        internship.startDate,
+      endDate:
+        window.prompt("End date (yyyy-mm-dd)", internship.endDate) ??
+        internship.endDate,
+      internshipType:
+        window.prompt(
+          "Internship type (On-Site/Remote/Hybrid)",
+          internship.internshipType
+        ) ?? internship.internshipType,
+    };
+    if (!updatedInternship.internshipName.trim()) return;
+    const previousInternships = [...internships];
+    setInternships((prev) =>
+      prev.map((item) =>
+        item.internshipId === internship.internshipId ? updatedInternship : item
+      )
+    );
+    setActionLoading(`internship-update-${internship.internshipId}`, true);
+    try {
+      await axios.put(
+        `${API_BASE}/internship/update-internship/${internship.internshipId}`,
+        updatedInternship,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + jwtToken,
+          },
+        }
+      );
+      toast.success("Internship updated.");
+    } catch (error) {
+      setInternships(previousInternships);
+      toast.error("Failed to update internship.");
+    } finally {
+      setActionLoading(`internship-update-${internship.internshipId}`, false);
+    }
+  }
+
+  async function deleteInternship(internshipId) {
+    if (!window.confirm("Delete this internship?")) return;
+    const previousInternships = [...internships];
+    setInternships((prev) =>
+      prev.filter((item) => item.internshipId !== internshipId)
+    );
+    setActionLoading(`internship-delete-${internshipId}`, true);
+    try {
+      await axios.delete(`${API_BASE}/internship/delete-internship/${internshipId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + jwtToken,
+        },
+      });
+      toast.success("Internship deleted.");
+    } catch (error) {
+      setInternships(previousInternships);
+      toast.error("Failed to delete internship.");
+    } finally {
+      setActionLoading(`internship-delete-${internshipId}`, false);
+    }
+  }
+
+  if (!jwtToken) {
+    return <Navigate to="/login" replace />;
   }
 
   return (
@@ -504,7 +878,18 @@ export default function StudentHome() {
                     />
                   </div>
                   <div className="col-sm-10 mt-3 mt-sm-0">
-                    <h3>{student.studentName}</h3>
+                    <div className="d-flex justify-content-between align-items-start gap-2">
+                      <h3>{student.studentName}</h3>
+                      {!isEditingProfile ? (
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-secondary"
+                          onClick={() => setIsEditingProfile(true)}
+                        >
+                          Edit Profile
+                        </button>
+                      ) : null}
+                    </div>
                     <div className="mt-2 text-muted">
                       <b>
                         {username} | B.Tech, {student.department} |{" "}
@@ -519,36 +904,204 @@ export default function StudentHome() {
                     </div>
                     <div className="row mt-2">
                       <div className="col-lg-3 col-sm-6 col-12 text-muted">
-                        <img
-                          src={telephone_logo}
-                          alt="telephone_logo"
-                          className="img-fluid icons-home-page"
-                        />{" "}
-                        {student.mobileNumber}
+                        <a
+                          href={student.mobileNumber ? `tel:${student.mobileNumber}` : "#"}
+                          className="text-muted text-decoration-none"
+                        >
+                          <img
+                            src={telephone_logo}
+                            alt="telephone_logo"
+                            className="img-fluid icons-home-page"
+                          />{" "}
+                          {student.mobileNumber}
+                        </a>
                       </div>
                       <div className="col-lg-6 col-sm-6 col-12 text-muted">
-                        <img
-                          src={email_logo}
-                          alt="email_logo"
-                          className="img-fluid icons-home-page"
-                        />{" "}
-                        {student.emailId}
+                        <a
+                          href={student.emailId ? `mailto:${student.emailId}` : "#"}
+                          className="text-muted text-decoration-none"
+                        >
+                          <img
+                            src={email_logo}
+                            alt="email_logo"
+                            className="img-fluid icons-home-page"
+                          />{" "}
+                          {student.emailId}
+                        </a>
                       </div>
                     </div>
                     <div className="row mt-4">
                       <div className="col-12">
-                        <img
-                          src={linkedin_student_logo}
-                          alt="linkedin_student_logo"
-                          className="img-fluid linkedin-logo-student"
-                        />
-                        <img
-                          src={github_student_logo}
-                          alt="github_student_logo"
-                          className="img-fluid github-logo-student"
-                        />
+                        <a
+                          href={normalizeExternalUrl(student.linkedinUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={!student.linkedinUrl ? "pe-none opacity-50" : ""}
+                        >
+                          <img
+                            src={linkedin_student_logo}
+                            alt="linkedin_student_logo"
+                            className="img-fluid linkedin-logo-student"
+                          />
+                        </a>
+                        <a
+                          href={normalizeExternalUrl(student.githubUrl)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={!student.githubUrl ? "pe-none opacity-50" : ""}
+                        >
+                          <img
+                            src={github_student_logo}
+                            alt="github_student_logo"
+                            className="img-fluid github-logo-student"
+                          />
+                        </a>
                       </div>
                     </div>
+                    {isEditingProfile ? (
+                      <form className="border rounded p-3 mt-3" onSubmit={saveProfile}>
+                        <div className="row g-2">
+                          <div className="col-md-6">
+                            <input
+                              className="form-control"
+                              value={profileForm.studentName}
+                              onChange={(e) =>
+                                setProfileForm((prev) => ({
+                                  ...prev,
+                                  studentName: e.target.value,
+                                }))
+                              }
+                              placeholder="Student name"
+                              required
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <input
+                              className="form-control"
+                              value={profileForm.emailId}
+                              onChange={(e) =>
+                                setProfileForm((prev) => ({
+                                  ...prev,
+                                  emailId: e.target.value,
+                                }))
+                              }
+                              placeholder="Email"
+                              type="email"
+                              required
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <input
+                              className="form-control"
+                              value={profileForm.mobileNumber}
+                              onChange={(e) =>
+                                setProfileForm((prev) => ({
+                                  ...prev,
+                                  mobileNumber: e.target.value,
+                                }))
+                              }
+                              placeholder="Mobile number"
+                              required
+                            />
+                          </div>
+                          <div className="col-md-6">
+                            <input
+                              className="form-control"
+                              value={profileForm.department}
+                              onChange={(e) =>
+                                setProfileForm((prev) => ({
+                                  ...prev,
+                                  department: e.target.value,
+                                }))
+                              }
+                              placeholder="Department"
+                              required
+                            />
+                          </div>
+                          <div className="col-md-4">
+                            <input
+                              className="form-control"
+                              value={profileForm.batch}
+                              onChange={(e) =>
+                                setProfileForm((prev) => ({
+                                  ...prev,
+                                  batch: e.target.value,
+                                }))
+                              }
+                              placeholder="Batch"
+                              required
+                            />
+                          </div>
+                          <div className="col-md-4">
+                            <input
+                              className="form-control"
+                              value={profileForm.cgpa}
+                              onChange={(e) =>
+                                setProfileForm((prev) => ({
+                                  ...prev,
+                                  cgpa: e.target.value,
+                                }))
+                              }
+                              placeholder="CGPA"
+                            />
+                          </div>
+                          <div className="col-md-4">
+                            <input
+                              className="form-control"
+                              value={profileForm.linkedinUrl}
+                              onChange={(e) =>
+                                setProfileForm((prev) => ({
+                                  ...prev,
+                                  linkedinUrl: e.target.value,
+                                }))
+                              }
+                              placeholder="LinkedIn URL"
+                            />
+                          </div>
+                          <div className="col-md-12">
+                            <input
+                              className="form-control"
+                              value={profileForm.githubUrl}
+                              onChange={(e) =>
+                                setProfileForm((prev) => ({
+                                  ...prev,
+                                  githubUrl: e.target.value,
+                                }))
+                              }
+                              placeholder="GitHub URL"
+                            />
+                          </div>
+                        </div>
+                        <div className="d-flex gap-2 justify-content-end mt-3">
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary"
+                            onClick={() => {
+                              setIsEditingProfile(false);
+                              setProfileForm({
+                                studentName: student.studentName || "",
+                                emailId: student.emailId || "",
+                                mobileNumber: student.mobileNumber || "",
+                                department: student.department || "",
+                                batch: student.batch || "",
+                                cgpa: student.cgpa || "",
+                                linkedinUrl: student.linkedinUrl || "",
+                                githubUrl: student.githubUrl || "",
+                              });
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="btn btn-danger"
+                            disabled={!!pendingActions["profile-save"]}
+                          >
+                            {pendingActions["profile-save"] ? "Saving..." : "Save Profile"}
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -603,6 +1156,24 @@ export default function StudentHome() {
                         <p>Expiry Date: {achievement.expiryDate}</p>
                         <p>Verification: {achievement.verification}</p>
                         <p>Type: {achievement.type}</p>
+                        <div className="d-flex gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary"
+                            disabled={!!pendingActions[`achievement-update-${achievement.certificationId}`]}
+                            onClick={() => updateAchievement(achievement)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            disabled={!!pendingActions[`achievement-delete-${achievement.certificationId}`]}
+                            onClick={() => deleteAchievement(achievement.certificationId)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                       <div className="col-6">
                         <img
@@ -626,6 +1197,24 @@ export default function StudentHome() {
                         <p>Expiry Date: {achievement.expiryDate}</p>
                         <p>Verification: {achievement.verification}</p>
                         <p>Type: {achievement.type}</p>
+                        <div className="d-flex gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary"
+                            disabled={!!pendingActions[`achievement-update-${achievement.certificationId}`]}
+                            onClick={() => updateAchievement(achievement)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-danger"
+                            disabled={!!pendingActions[`achievement-delete-${achievement.certificationId}`]}
+                            onClick={() => deleteAchievement(achievement.certificationId)}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                       <div className="col-6">
                         <img
@@ -672,9 +1261,39 @@ export default function StudentHome() {
                   <p>Title: {project.projectTitle}</p>
                   <p>Description: {project.description}</p>
                   <p>Tags: {project.tags}</p>
-                  <a href={project.url} rel="noreferrer" target="_blank">
+                  <a
+                    href={normalizeExternalUrl(project.url)}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
                     {project.url}
                   </a>
+                  <a
+                    href={normalizeExternalUrl(project.verificationUrl)}
+                    rel="noreferrer"
+                    target="_blank"
+                    className="d-block"
+                  >
+                    {project.verificationUrl}
+                  </a>
+                  <div className="d-flex gap-2 mt-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      disabled={!!pendingActions[`project-update-${project.projectId}`]}
+                      onClick={() => updateProject(project)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      disabled={!!pendingActions[`project-delete-${project.projectId}`]}
+                      onClick={() => deleteProject(project.projectId)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -710,6 +1329,24 @@ export default function StudentHome() {
                 <div className="card card-body" key={index}>
                   <p>Skill: {skill.skill}</p>
                   <p>Domain: {skill.domain}</p>
+                  <div className="d-flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      disabled={!!pendingActions[`skill-update-${skill.skillId}`]}
+                      onClick={() => updateSkill(skill)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-danger"
+                      disabled={!!pendingActions[`skill-delete-${skill.skillId}`]}
+                      onClick={() => deleteSkill(skill.skillId)}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -751,6 +1388,24 @@ export default function StudentHome() {
                       <p>Internship Type: {internship.internshipType}</p>
                       <p>Start Date: {internship.startDate}</p>
                       <p>End Date: {internship.endDate}</p>
+                      <div className="d-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          disabled={!!pendingActions[`internship-update-${internship.internshipId}`]}
+                          onClick={() => updateInternship(internship)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-danger"
+                          disabled={!!pendingActions[`internship-delete-${internship.internshipId}`]}
+                          onClick={() => deleteInternship(internship.internshipId)}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                     <div className="col-6">
                       <img

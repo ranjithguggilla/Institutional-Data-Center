@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { Helmet } from "react-helmet-async";
 import logo from "../images/logo/vaagdevi_logo.png";
 import "../css/login_page.css";
 import { API_BASE } from "../../apiBase";
@@ -11,7 +10,7 @@ export default function Register() {
   const navigate = useNavigate();
   const [student, setStudent] = useState(true);
   const [faculty, setFaculty] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -31,11 +30,14 @@ export default function Register() {
     const role = student ? "STUDENT" : "FACULTY";
 
     try {
-      setLoading(false);
+      setIsSubmitting(true);
       await axios.post(
         `${API_BASE}/user/register`,
         { userName, password, role },
-        { headers: { "Content-Type": "application/json" } }
+        {
+          headers: { "Content-Type": "application/json" },
+          timeout: 25000,
+        }
       );
       toast.success("Account created. You can sign in now.");
       navigate("/login");
@@ -53,16 +55,12 @@ export default function Register() {
           : "Registration failed. Please try again.";
       toast.error(serverMsg || fallback);
     } finally {
-      setLoading(true);
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div>
-      <Helmet>
-        <title>Register — Institutional Data Center</title>
-        <body className="bg-white" />
-      </Helmet>
       <div className="container-fluid no-padding">
         <div className="row no-gutters">
           <div className="col-lg-7 no-padding col-12">
@@ -164,23 +162,27 @@ export default function Register() {
                             required
                           />
                         </div>
-                        {loading ? (
-                          <button
-                            type="submit"
-                            className="btn btn-danger btn-block col-12 social_logos vaagdevi_color_clicked"
-                          >
-                            <h5 className="mb-0">Create account</h5>
-                          </button>
-                        ) : (
+                        {isSubmitting ? (
                           <button
                             type="submit"
                             disabled
                             className="btn btn-danger btn-block col-12 social_logos vaagdevi_color_clicked"
                           >
-                            <h5 className="mb-0">
-                              <span className="spinner-border" role="status" />{" "}
+                            <h5 className="mb-0 d-flex align-items-center justify-content-center gap-2">
+                              <span
+                                className="spinner-border spinner-border-sm"
+                                role="status"
+                                aria-hidden
+                              />
                               Please wait...
                             </h5>
+                          </button>
+                        ) : (
+                          <button
+                            type="submit"
+                            className="btn btn-danger btn-block col-12 social_logos vaagdevi_color_clicked"
+                          >
+                            <h5 className="mb-0">Create account</h5>
                           </button>
                         )}
                       </form>

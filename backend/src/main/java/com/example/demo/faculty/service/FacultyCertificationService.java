@@ -1,7 +1,10 @@
 package com.example.demo.faculty.service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import com.example.demo.faculty.FacultyEntityChecks;
 
 import org.springframework.stereotype.Service;
 
@@ -59,6 +62,9 @@ public class FacultyCertificationService {
     }
 	
     public List<FacultyCertification> getCertificationByFaculty(Faculty faculty){
+        if (!FacultyEntityChecks.isPersisted(faculty)) {
+            return Collections.emptyList();
+        }
     	return certificationRepository.findByFaculty(faculty);
     }
     
@@ -67,6 +73,9 @@ public class FacultyCertificationService {
     }
     
     public List<String> getUniqueCertificationTypeByFaculty(Faculty faculty){
+        if (!FacultyEntityChecks.isPersisted(faculty)) {
+            return Collections.emptyList();
+        }
     	return certificationRepository.findUniqueFacultyCertificationVerificationByFaculty(faculty);
     }
     

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 
 export default function FacultyModals({
   uploadAchievement,
@@ -8,9 +8,43 @@ export default function FacultyModals({
   uploadDocuments,
   uploadSocial,
   uploadPassword,
+  uploadFacultyProfile,
+  uploadLicense,
+  uploadGrant,
   departmentStudents,
   uploadStudentPassword,
+  socialDefaults,
+  profileDefaults,
 }) {
+  useEffect(() => {
+    if (!socialDefaults) return;
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.value = v ?? "";
+    };
+    set("linkedin", socialDefaults.linkedin);
+    set("github", socialDefaults.github);
+    set("googleScholar", socialDefaults.googleScholar);
+    set("orcid", socialDefaults.orcid);
+    set("researchGate", socialDefaults.researchGate);
+    set("portfolioUrl", socialDefaults.portfolioUrl);
+  }, [socialDefaults]);
+
+  useEffect(() => {
+    if (!profileDefaults) return;
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.value = v ?? "";
+    };
+    set("profile_facultyName", profileDefaults.facultyName);
+    set("profile_department", profileDefaults.department);
+    set("profile_emailId", profileDefaults.emailId);
+    set("profile_contactNumber", profileDefaults.contactNumber);
+    set("profile_designation", profileDefaults.designation);
+    set("profile_address", profileDefaults.address);
+    set("profile_dob", profileDefaults.dateOfBirth?.slice?.(0, 10) ?? "");
+  }, [profileDefaults]);
+
   return (
     <div>
       <div
@@ -479,7 +513,7 @@ export default function FacultyModals({
             <form action="#" onSubmit={(e) => uploadSocial(e)} method="post">
               <div className="modal-header">
                 <h1 className="modal-title fs-5" id="socialLabel">
-                  Add Social Profiles
+                  Social &amp; research profiles
                 </h1>
                 <button
                   type="button"
@@ -505,26 +539,310 @@ export default function FacultyModals({
 
                 <div className="mb-2">
                   <label htmlFor="github" className="form-label">
-                    Github URL
+                    GitHub URL
                   </label>
                   <input
                     type="url"
                     className="form-control"
                     name="github"
                     id="github"
-                    placeholder="Enter your url"
+                    placeholder="https://github.com/username"
                   />
                 </div>
+                <div className="mb-2">
+                  <label htmlFor="googleScholar" className="form-label">
+                    Google Scholar profile
+                  </label>
+                  <input
+                    type="url"
+                    className="form-control"
+                    name="googleScholar"
+                    id="googleScholar"
+                    placeholder="https://scholar.google.com/citations?user=..."
+                  />
+                </div>
+                <div className="mb-2">
+                  <label htmlFor="orcid" className="form-label">
+                    ORCID
+                  </label>
+                  <input
+                    type="url"
+                    className="form-control"
+                    name="orcid"
+                    id="orcid"
+                    placeholder="https://orcid.org/0000-0000-0000-0000"
+                  />
+                </div>
+                <div className="mb-2">
+                  <label htmlFor="researchGate" className="form-label">
+                    ResearchGate
+                  </label>
+                  <input
+                    type="url"
+                    className="form-control"
+                    name="researchGate"
+                    id="researchGate"
+                    placeholder="https://www.researchgate.net/profile/..."
+                  />
+                </div>
+                <div className="mb-2">
+                  <label htmlFor="portfolioUrl" className="form-label">
+                    Website / lab / portfolio
+                  </label>
+                  <input
+                    type="url"
+                    className="form-control"
+                    name="portfolioUrl"
+                    id="portfolioUrl"
+                    placeholder="https://"
+                  />
+                </div>
+                <p className="small text-muted mb-0">
+                  Optional fields. Paste full URLs. You can clear a field by deleting its text and saving.
+                </p>
               </div>
               <div className="modal-footer">
                 <button type="submit" className="btn btn-danger">
-                  Upload Social Profile
+                  Save profiles
                 </button>
               </div>
             </form>
           </div>
         </div>
       </div>
+
+      <div
+        className="modal fade"
+        id="profileBackdrop"
+        data-bs-backdrop="static"
+        data-bs-keyboard="false"
+        tabIndex="-1"
+        aria-labelledby="profileLabel"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-dialog-centered modal-lg">
+          <div className="modal-content">
+            <form action="#" onSubmit={(e) => uploadFacultyProfile(e)} method="post">
+              <div className="modal-header">
+                <h1 className="modal-title fs-5" id="profileLabel">
+                  Edit faculty profile
+                </h1>
+                <button
+                  type="button"
+                  id="profileModalButton"
+                  className="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div className="modal-body row g-2">
+                <div className="col-md-6">
+                  <label className="form-label" htmlFor="profile_facultyName">
+                    Name
+                  </label>
+                  <input type="text" className="form-control" id="profile_facultyName" name="facultyName" />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label" htmlFor="profile_department">
+                    Department
+                  </label>
+                  <input type="text" className="form-control" id="profile_department" name="department" />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label" htmlFor="profile_emailId">
+                    Email
+                  </label>
+                  <input type="email" className="form-control" id="profile_emailId" name="emailId" />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label" htmlFor="profile_contactNumber">
+                    Phone
+                  </label>
+                  <input type="text" className="form-control" id="profile_contactNumber" name="contactNumber" />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label" htmlFor="profile_designation">
+                    Designation
+                  </label>
+                  <input type="text" className="form-control" id="profile_designation" name="designation" />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label" htmlFor="profile_dob">
+                    Date of birth
+                  </label>
+                  <input type="text" className="form-control" id="profile_dob" name="dateOfBirth" placeholder="yyyy-mm-dd" />
+                </div>
+                <div className="col-12">
+                  <label className="form-label" htmlFor="profile_address">
+                    Address
+                  </label>
+                  <textarea className="form-control" id="profile_address" name="address" rows={2} />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="submit" className="btn btn-danger">
+                  Save profile
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="modal fade"
+        id="licenseBackdrop"
+        data-bs-backdrop="static"
+        data-bs-keyboard="false"
+        tabIndex="-1"
+        aria-labelledby="licenseLabel"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <form action="#" onSubmit={(e) => uploadLicense(e)} method="post">
+              <input type="hidden" name="licenseId" id="license_id_field" value="" />
+              <div className="modal-header">
+                <h1 className="modal-title fs-5" id="licenseLabel">
+                  Professional license
+                </h1>
+                <button
+                  type="button"
+                  id="licenseModalButton"
+                  className="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="license_title">
+                    Title / credential name
+                  </label>
+                  <input type="text" className="form-control" id="license_title" name="title" required />
+                </div>
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="license_issuingBody">
+                    Issuing organization
+                  </label>
+                  <input type="text" className="form-control" id="license_issuingBody" name="issuingBody" />
+                </div>
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="license_number">
+                    License number
+                  </label>
+                  <input type="text" className="form-control" id="license_number" name="licenseNumber" />
+                </div>
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="license_expiry">
+                    Expiry (yyyy-mm-dd)
+                  </label>
+                  <input type="text" className="form-control" id="license_expiry" name="expiryDate" placeholder="yyyy-mm-dd" />
+                </div>
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="license_verificationUrl">
+                    Verification URL
+                  </label>
+                  <input type="url" className="form-control" id="license_verificationUrl" name="verificationUrl" />
+                </div>
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="license_notes">
+                    Notes
+                  </label>
+                  <textarea className="form-control" id="license_notes" name="notes" rows={2} />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="submit" className="btn btn-danger">
+                  Save license
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="modal fade"
+        id="grantBackdrop"
+        data-bs-backdrop="static"
+        data-bs-keyboard="false"
+        tabIndex="-1"
+        aria-labelledby="grantLabel"
+        aria-hidden="true"
+      >
+        <div className="modal-dialog modal-dialog-centered modal-lg">
+          <div className="modal-content">
+            <form action="#" onSubmit={(e) => uploadGrant(e)} method="post">
+              <input type="hidden" name="grantId" id="grant_id_field" value="" />
+              <div className="modal-header">
+                <h1 className="modal-title fs-5" id="grantLabel">
+                  Research grant / funding
+                </h1>
+                <button
+                  type="button"
+                  id="grantModalButton"
+                  className="btn-close"
+                  data-bs-dismiss="modal"
+                  aria-label="Close"
+                ></button>
+              </div>
+              <div className="modal-body">
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="grant_title">
+                    Project / grant title
+                  </label>
+                  <input type="text" className="form-control" id="grant_title" name="title" required />
+                </div>
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="grant_agency">
+                    Funding agency
+                  </label>
+                  <input type="text" className="form-control" id="grant_agency" name="fundingAgency" />
+                </div>
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="grant_amount">
+                    Amount (optional)
+                  </label>
+                  <input type="text" className="form-control" id="grant_amount" name="amount" placeholder="e.g. INR 5,00,000" />
+                </div>
+                <div className="row">
+                  <div className="col-md-6 mb-2">
+                    <label className="form-label" htmlFor="grant_start">
+                      Start (yyyy-mm-dd)
+                    </label>
+                    <input type="text" className="form-control" id="grant_start" name="startDate" placeholder="yyyy-mm-dd" />
+                  </div>
+                  <div className="col-md-6 mb-2">
+                    <label className="form-label" htmlFor="grant_end">
+                      End (yyyy-mm-dd)
+                    </label>
+                    <input type="text" className="form-control" id="grant_end" name="endDate" placeholder="yyyy-mm-dd" />
+                  </div>
+                </div>
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="grant_desc">
+                    Description
+                  </label>
+                  <textarea className="form-control" id="grant_desc" name="description" rows={3} />
+                </div>
+                <div className="mb-2">
+                  <label className="form-label" htmlFor="grant_projectUrl">
+                    Project / outcomes URL
+                  </label>
+                  <input type="url" className="form-control" id="grant_projectUrl" name="projectUrl" />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="submit" className="btn btn-danger">
+                  Save grant
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
       <div
         className="modal fade"
         id="personalDocumentBackdrop"

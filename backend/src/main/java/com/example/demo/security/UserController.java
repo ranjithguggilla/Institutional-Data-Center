@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.demo.student.entity.Student;
+import com.example.demo.student.service.StudentService;
+
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -26,6 +29,7 @@ public class UserController {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final StudentService studentService;
 
     @GetMapping("get-user-object")
     public User getUser(Principal principal) {
@@ -37,7 +41,30 @@ public class UserController {
     public ResponseEntity<?> register(@RequestBody User dto) {
         dto.setPassword(passwordEncoder.encode(dto.getPassword()));
         User addUser = userRepository.save(dto);
+        if (addUser.getRole() != null && "STUDENT".equalsIgnoreCase(addUser.getRole().trim())) {
+            ensureStudentRowForNewAccount(addUser.getUserName());
+        }
         return new ResponseEntity<>(addUser, HttpStatus.CREATED);
+    }
+
+    /**
+     * Self-registration only creates a {@link User}. The student dashboard loads skills/projects/etc.
+     * using a persisted {@link Student} row; without it, JPA queries by transient Student can fail and
+     * the SPA logs the user out. Create a minimal profile keyed by the same id as the login name.
+     */
+    private void ensureStudentRowForNewAccount(String studentId) {
+        if (studentId == null || studentId.isBlank()) {
+            return;
+        }
+        String id = studentId.trim();
+        if (studentService.studentExist(id)) {
+            return;
+        }
+        Student stub = new Student();
+        stub.setStudentId(id);
+        stub.setStudentName("");
+        stub.setStudentGender(false);
+        studentService.addStudent(stub);
     }
 
     @GetMapping("all")

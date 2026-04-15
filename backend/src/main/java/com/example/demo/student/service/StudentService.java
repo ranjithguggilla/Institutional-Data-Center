@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 
@@ -54,12 +55,18 @@ public class StudentService {
 		}
 	}
 
+	/**
+	 * Persist profile fields. Uses JPA {@code save} (insert or update by id). The previous
+	 * implementation required a row to exist first, so self-registered students with a stub row
+	 * or slightly mismatched payloads always got {@code false} while still returning HTTP 200,
+	 * which confused the SPA.
+	 */
 	public boolean updateStudent(Student student) {
-		if(studentExist(student.getStudentId())) {
-			studentRepository.save(student);
-			return true;
+		if (student == null || !StringUtils.hasText(student.getStudentId())) {
+			return false;
 		}
-		return false;
+		studentRepository.save(student);
+		return true;
 	}
 	
 	public List<String> getAllUniqueBatches(){

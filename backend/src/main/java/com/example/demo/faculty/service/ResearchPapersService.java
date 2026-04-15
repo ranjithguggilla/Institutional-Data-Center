@@ -8,8 +8,11 @@ import com.example.demo.faculty.entity.Faculty;
 import com.example.demo.faculty.entity.ResearchPapers;
 import com.example.demo.faculty.repository.ResearchPapersRepository;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import com.example.demo.faculty.FacultyEntityChecks;
 
 @Service
 @RequiredArgsConstructor
@@ -56,6 +59,9 @@ public class ResearchPapersService {
     }
     
     public List<ResearchPapers> getByFacultyObject(Faculty faculty) {
+        if (!FacultyEntityChecks.isPersisted(faculty)) {
+            return Collections.emptyList();
+        }
     	return researchPapersRepository.findByFaculty(faculty);
     }
     
@@ -64,6 +70,9 @@ public class ResearchPapersService {
     }
     
     public List<String> getUniquePaperTitleByFaculty(Faculty faculty){
+        if (!FacultyEntityChecks.isPersisted(faculty)) {
+            return Collections.emptyList();
+        }
     	return researchPapersRepository.findUniqueResearchPapersCompanyByFaculty(faculty);
     }
 }

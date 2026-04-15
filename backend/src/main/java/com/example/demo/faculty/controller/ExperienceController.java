@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.demo.admin.GovernanceService;
 import com.example.demo.faculty.entity.Experience;
 import com.example.demo.faculty.service.ExperienceService;
 import com.example.demo.faculty.service.FacultyService;
@@ -25,11 +26,17 @@ public class ExperienceController {
 
     private final ExperienceService experienceService;
     private final FacultyService facultyService;
+    private final GovernanceService governanceService;
 
     @PostMapping("add-experience")
     public boolean addExperience(Principal principal, @RequestBody Experience experience) {
         experience.setFaculty(facultyService.getFacultyById(principal.getName()));
-        return experienceService.addExperience(experience);
+        boolean created = experienceService.addExperience(experience);
+        if (created) {
+            governanceService.recordChange(principal.getName(), "EXPERIENCE", principal.getName(), "CREATE",
+                    "Experience added: " + experience.getCompany());
+        }
+        return created;
     }
 
     @GetMapping("get-experience/{experienceId}")
@@ -53,13 +60,26 @@ public class ExperienceController {
     }
 
     @PutMapping("update-experience/{experienceId}")
-    public boolean updateExperience(@PathVariable("experienceId") int experienceId, @RequestBody Experience experience) {
-        return experienceService.updateExperience(experience);
+    public boolean updateExperience(
+            @PathVariable("experienceId") int experienceId,
+            @RequestBody Experience experience,
+            Principal principal) {
+        boolean updated = experienceService.updateExperience(experience);
+        if (updated) {
+            governanceService.recordChange(principal != null ? principal.getName() : "system", "EXPERIENCE",
+                    String.valueOf(experienceId), "UPDATE", "Experience updated: " + experience.getCompany());
+        }
+        return updated;
     }
 
     @DeleteMapping("delete-experience/{experienceId}")
-    public boolean deleteExperience(@PathVariable("experienceId") int experienceId) {
-        return experienceService.deleteExperience(experienceId);
+    public boolean deleteExperience(@PathVariable("experienceId") int experienceId, Principal principal) {
+        boolean deleted = experienceService.deleteExperience(experienceId);
+        if (deleted) {
+            governanceService.recordChange(principal != null ? principal.getName() : "system", "EXPERIENCE",
+                    String.valueOf(experienceId), "DELETE", "Experience removed");
+        }
+        return deleted;
     }
 
     @GetMapping("get-unique-experiences-by-faculty-id/{facultyId}")

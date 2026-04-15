@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.demo.admin.GovernanceService;
 import com.example.demo.faculty.entity.Faculty;
 import com.example.demo.faculty.entity.FacultyCertification;
 import com.example.demo.faculty.service.FacultyCertificationService;
@@ -36,6 +37,7 @@ public class FacultyCertificationController {
 
     private final FacultyCertificationService certificationService;
     private final FacultyService facultyService;
+    private final GovernanceService governanceService;
 
     @PostMapping("add-certification")
     public ResponseEntity<String> addCertification(@RequestParam("file") MultipartFile file,
@@ -60,6 +62,8 @@ public class FacultyCertificationController {
             certification.setCertify("/faculty_certifications/" + fileName);
             certification.setFaculty(faculty);
             certificationService.addCertification(certification);
+            governanceService.recordChange(principal.getName(), "FACULTY_CERTIFICATION", faculty.getFacultyId(), "CREATE",
+                    "Faculty certification added: " + certificationName);
 
             return ResponseEntity.ok("Certification details uploaded successfully.");
         } catch (IOException e) {
@@ -88,13 +92,27 @@ public class FacultyCertificationController {
     }
 
     @PutMapping("update-certification/{certificationId}")
-    public boolean updateCertification(@PathVariable("certificationId") int certificationId, @RequestBody FacultyCertification certification) {
-        return certificationService.updateCertification(certification);
+    public boolean updateCertification(
+            @PathVariable("certificationId") int certificationId,
+            @RequestBody FacultyCertification certification,
+            Principal principal) {
+        boolean updated = certificationService.updateCertification(certification);
+        if (updated) {
+            governanceService.recordChange(principal != null ? principal.getName() : "system", "FACULTY_CERTIFICATION",
+                    String.valueOf(certificationId), "UPDATE",
+                    "Faculty certification updated: " + certification.getCertificationName());
+        }
+        return updated;
     }
 
     @DeleteMapping("delete-certification/{certificationId}")
-    public boolean deleteCertification(@PathVariable("certificationId") int certificationId) {
-        return certificationService.deleteCertification(certificationId);
+    public boolean deleteCertification(@PathVariable("certificationId") int certificationId, Principal principal) {
+        boolean deleted = certificationService.deleteCertification(certificationId);
+        if (deleted) {
+            governanceService.recordChange(principal != null ? principal.getName() : "system", "FACULTY_CERTIFICATION",
+                    String.valueOf(certificationId), "DELETE", "Faculty certification removed");
+        }
+        return deleted;
     }
 
     @GetMapping("get-unique-certifications-by-faculty-id/{facultyId}")

@@ -27,6 +27,12 @@ public class Student {
 	
 	@Column(name = "mobileNumber")
 	private String mobileNumber;
+
+	@Column(name = "linkedinUrl")
+	private String linkedinUrl;
+
+	@Column(name = "githubUrl")
+	private String githubUrl;
 	
 	@Column(name = "cgpa")
 	private String cgpa;
@@ -79,6 +85,22 @@ public class Student {
 		this.mobileNumber = mobileNumber;
 	}
 
+	public String getLinkedinUrl() {
+		return linkedinUrl;
+	}
+
+	public void setLinkedinUrl(String linkedinUrl) {
+		this.linkedinUrl = linkedinUrl;
+	}
+
+	public String getGithubUrl() {
+		return githubUrl;
+	}
+
+	public void setGithubUrl(String githubUrl) {
+		this.githubUrl = githubUrl;
+	}
+
 	public String getCgpa() {
 		return cgpa;
 	}
@@ -115,7 +137,8 @@ public class Student {
 	public String toString() {
 		return "Student [studentId=" + studentId + ", studentName=" + studentName + ", studentGender=" + studentGender
 				+ ", batch=" + batch + ", emailId=" + emailId + ", mobileNumber=" + mobileNumber + ", cgpa=" + cgpa
-				+ ", profilePicture=" + profilePicture + ", department=" + department + "]";
+				+ ", profilePicture=" + profilePicture + ", department=" + department + ", linkedinUrl=" + linkedinUrl
+				+ ", githubUrl=" + githubUrl + "]";
 	}
 	
 }

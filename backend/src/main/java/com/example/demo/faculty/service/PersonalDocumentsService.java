@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 
+import com.example.demo.faculty.FacultyEntityChecks;
 import com.example.demo.faculty.entity.Faculty;
 import com.example.demo.faculty.entity.PersonalDocuments;
 import com.example.demo.faculty.repository.PersonalDocumentsRepository;
@@ -30,6 +31,9 @@ public class PersonalDocumentsService {
     }
 
     public PersonalDocuments getDocumentsByFaculty(Faculty faculty) {
+        if (!FacultyEntityChecks.isPersisted(faculty)) {
+            return null;
+        }
         return personalDocumentsRepository.findByFaculty(faculty);
     }
 

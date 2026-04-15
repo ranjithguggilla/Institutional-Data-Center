@@ -2,7 +2,6 @@ import React, { useContext, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import logo from "../images/logo/vaagdevi_logo.png";
 import AuthContext from "../auth/AuthContext";
-import { Helmet } from "react-helmet-async";
 import "../css/login_page.css";
 
 export default function Login() {
@@ -13,20 +12,17 @@ export default function Login() {
   const [faculty, setFaculty] = useState(false);
   const [admin, setAdmin] = useState(false);
 
-  const [loading, setLoading] = useState(true);
+  /** True while login request is in flight (shows disabled + spinner). */
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (jwtToken) {
-      redirectUser(null);
+      redirectUser(null, jwtToken);
     }
   }, [jwtToken]);
 
   return (
     <div>
-      <Helmet>
-        <title>Login — Institutional Data Center</title>
-        <body className="bg-white" />
-      </Helmet>
       <div className="container-fluid no-padding">
         <div className="row no-gutters">
           <div className="col-lg-7 no-padding col-12">
@@ -113,7 +109,7 @@ export default function Login() {
                     <div className="col-10 offset-1">
                       <form
                         method="post"
-                        onSubmit={(e) => loginUser(e, setLoading)}
+                        onSubmit={(e) => loginUser(e, setIsSubmitting)}
                       >
                         <div className="mb-3">
                           <label htmlFor="username" className="form-label">
@@ -151,26 +147,27 @@ export default function Login() {
                           </Link>
                         </div>
 
-                        {loading ? (
-                          <button
-                            type="submit"
-                            className="btn btn-danger btn-block col-12 social_logos vaagdevi_color_clicked "
-                          >
-                            <h5>Sign in</h5>
-                          </button>
-                        ) : (
+                        {isSubmitting ? (
                           <button
                             type="submit"
                             disabled
                             className="btn btn-danger btn-block col-12 social_logos vaagdevi_color_clicked"
                           >
-                            <h5>
-                              <div
-                                className="spinner-border"
+                            <h5 className="mb-0 d-flex align-items-center justify-content-center gap-2">
+                              <span
+                                className="spinner-border spinner-border-sm"
                                 role="status"
-                              ></div>{" "}
+                                aria-hidden
+                              />
                               Please wait...
                             </h5>
+                          </button>
+                        ) : (
+                          <button
+                            type="submit"
+                            className="btn btn-danger btn-block col-12 social_logos vaagdevi_color_clicked "
+                          >
+                            <h5 className="mb-0">Sign in</h5>
                           </button>
                         )}
                       </form>

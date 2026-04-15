@@ -1,8 +1,39 @@
 import React, { Suspense } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 import { AuthProvider } from "./components/auth/AuthContext";
 import Redirection from "./components/default/Redirection";
 import "./App.css";
+
+/** One Helmet for auth routes so the tab title always matches the URL (avoids stale Register title on /login). */
+function AuthRouteHead() {
+  const { pathname } = useLocation();
+  if (pathname === "/login") {
+    return (
+      <Helmet>
+        <title>Login — Institutional Data Center</title>
+        <body className="bg-white" />
+      </Helmet>
+    );
+  }
+  if (pathname === "/register") {
+    return (
+      <Helmet>
+        <title>Register — Institutional Data Center</title>
+        <body className="bg-white" />
+      </Helmet>
+    );
+  }
+  if (pathname === "/forgot-password") {
+    return (
+      <Helmet>
+        <title>Forgot password — Institutional Data Center</title>
+        <body className="bg-white" />
+      </Helmet>
+    );
+  }
+  return null;
+}
 
 const LazyLogin = React.lazy(() => import("./components/default/Login"));
 const LazyRegister = React.lazy(() => import("./components/default/Register"));
@@ -42,6 +73,7 @@ function App() {
   return (
     <div className="App">
       <BrowserRouter>
+        <AuthRouteHead />
         <AuthProvider>
           <Routes>
             <Route path="/" element={<Redirection />} />

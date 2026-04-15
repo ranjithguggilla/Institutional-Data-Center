@@ -28,6 +28,19 @@ public class Social {
     @Column(name = "linkedin")
     private String linkedin;
 
+    @Column(name = "googleScholar")
+    private String googleScholar;
+
+    @Column(name = "orcid")
+    private String orcid;
+
+    @Column(name = "researchGate")
+    private String researchGate;
+
+    /** Personal site / lab page / portfolio URL */
+    @Column(name = "portfolioUrl")
+    private String portfolioUrl;
+
 	public Social() {}
 
 	public Social(int socialId, Faculty faculty, String github, String linkedin) {
@@ -68,6 +81,38 @@ public class Social {
 
 	public void setLinkedin(String linkedin) {
 		this.linkedin = linkedin;
+	}
+
+	public String getGoogleScholar() {
+		return googleScholar;
+	}
+
+	public void setGoogleScholar(String googleScholar) {
+		this.googleScholar = googleScholar;
+	}
+
+	public String getOrcid() {
+		return orcid;
+	}
+
+	public void setOrcid(String orcid) {
+		this.orcid = orcid;
+	}
+
+	public String getResearchGate() {
+		return researchGate;
+	}
+
+	public void setResearchGate(String researchGate) {
+		this.researchGate = researchGate;
+	}
+
+	public String getPortfolioUrl() {
+		return portfolioUrl;
+	}
+
+	public void setPortfolioUrl(String portfolioUrl) {
+		this.portfolioUrl = portfolioUrl;
 	}
 
 	@Override
